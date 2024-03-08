@@ -16,12 +16,16 @@ package org.integratedmodelling.klab;
  * limitations under the License.
  */
 
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.fromDependencies.CopyDependenciesMojo;
+import org.apache.maven.plugins.dependency.utils.DependencyUtil;
+import org.apache.maven.project.MavenProject;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -34,16 +38,25 @@ import java.io.IOException;
         threadSafe = true)
 public class ProductPackageMojo extends CopyDependenciesMojo {
 
-    //    /**
-//     * Location of the file.
-//     *
-//     * @parameter expression="${project.build.directory}"
-//     * @required
-//     */
-//    private File outputDirectory;
+    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+    private MavenProject project;
 
     @Override
     public void doExecute() throws MojoExecutionException {
+
+        Artifact mainArtifact = project.getArtifact();
+
+        File destDir = DependencyUtil.getFormattedOutputDirectory(
+                useSubDirectoryPerScope,
+                useSubDirectoryPerType,
+                useSubDirectoryPerArtifact,
+                useRepositoryLayout,
+                stripVersion,
+                stripType,
+                outputDirectory,
+                mainArtifact);
+
+        System.out.println("THE FUCKA IS " + destDir);
 
         /**
          * Create all deps in configured directory
