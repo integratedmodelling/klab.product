@@ -38,13 +38,13 @@ import java.io.IOException;
         threadSafe = true)
 public class ProductPackageMojo extends CopyDependenciesMojo {
 
-    @Parameter(defaultValue = "${project}", readonly = true, required = true)
-    private MavenProject project;
+//    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+//    private MavenProject project;
 
     @Override
     public void doExecute() throws MojoExecutionException {
 
-        Artifact mainArtifact = project.getArtifact();
+        Artifact mainArtifact = getProject().getArtifact();
 
         File destDir = DependencyUtil.getFormattedOutputDirectory(
                 useSubDirectoryPerScope,
