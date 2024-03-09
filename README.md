@@ -1,12 +1,12 @@
 # k.LAB product management plugin
 
-This package is a simple Maven plugin that automates the building of k.LAB products,
+This package is a simple Maven plugin that automates the building and testing of k.LAB products,
 documentation and other derived artifacts when compiling the k.LAB main stack or components.
 
 Currently the only implemented feature is the generation of k.LAB products with the correspondent
 digest and properties needed for distribution. It is used internally in the k.LAB deployment
 process. Later it will also produce AsciiDoc documentation files from components, functions and adapters configured
-in the code.
+in the code, and it will expose goals that execute and report on k.LAB test suites implemented in k.Actors.
 
 The plugin extends the dependency:copy-dependencies mojo of the [Apache Maven dependencies plugin](https://github.com/apache/maven-dependency-plugin)  
 and accepts all the goals and configuration options of the latter. In addition, the following goals are supported:
