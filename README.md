@@ -40,6 +40,7 @@ The plugin is available on Maven central. It is configured as follows:
                     <productName>klab.server.resources</productName>
                     <productMain>org.integratedmodelling.resources.server.ResourcesServer</productMain>
                     <productDescription>The reference implementation of the k.LAB Resources server</productDescription>
+                    <productClass>RESOURCES_SERVICE</productClass>
                 </configuration>
             </plugin>
         </plugins>
@@ -56,6 +57,7 @@ The configuration parameters for the `package-product` goal are:
 | productDescription | no                          | any description                                  | The description of the product                                                                                                                       |
 | productVersion     | no                          | A semantic version number                        | The product version. A timestamp will be appended to it as a build number.                                                                           |
 | productType        | no (default `jar`)          | One of `jar`, `exe`, `script` `installer`        | The type of product (`jar` supported currently)                                                                                                      |
+| productClass       | yes                         | A value of the [Product.ProductType](https://docs.integratedmodelling.org/javadocs/org/integratedmodelling/klab/api/engine/Product.ProductType.html) enum      | The class of the generated product                                                                                                                   |
 | productOSSpecific  | no (default false)          | `true` or `false`                                | Whether the product needs OS-specific installation                                                                                                   |
 
 After successful execution, the output directory will contain the product files with the file digest and properties that enable 

@@ -56,6 +56,9 @@ public class ProductPackageMojo extends CopyDependenciesMojo {
     @Parameter(required = false)
     private String productDescription;
 
+    @Parameter(required = true)
+    private Product.ProductType productClass;
+
     /**
      * If this is present in a Java JAR-based product, it must be the main class. Otherwise a script or
      * executable is identified by its relative path in the distribution. Only
@@ -179,6 +182,7 @@ public class ProductPackageMojo extends CopyDependenciesMojo {
                     "description given" : productDescription);
             properties.setProperty(Product.PRODUCT_OSSPECIFIC_PROPERTY, productOSSpecific ? "true" : "false");
             properties.setProperty(Product.PRODUCT_TYPE_PROPERTY, productType);
+            properties.setProperty(Product.PRODUCT_CLASS_PROPERTY, productClass.name());
             properties.setProperty(Product.BUILD_MAINCLASS_PROPERTY, productMain);
             properties.setProperty(Product.BUILD_TIME_PROPERTY, System.currentTimeMillis() + "");
             properties.setProperty(Product.BUILD_VERSION_PROPERTY, productVersion + "." + timestamp);
@@ -196,5 +200,13 @@ public class ProductPackageMojo extends CopyDependenciesMojo {
             throw new MojoExecutionException(throwable.getMessage());
         }
 
+    }
+
+    public Product.ProductType getProductClass() {
+        return productClass;
+    }
+
+    public void setProductClass(Product.ProductType productClass) {
+        this.productClass = productClass;
     }
 }
