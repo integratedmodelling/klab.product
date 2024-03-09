@@ -1,33 +1,91 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>org.integratedmodelling</groupId>
-  <artifactId>klab.product</artifactId>
-  <packaging>maven-plugin</packaging>
-  <version>1.0-SNAPSHOT</version>
-  <name>Maven Mojo Archetype</name>
-  <url>http://maven.apache.org</url>
-  <dependencies>
-    <dependency>
-      <groupId>org.apache.maven</groupId>
-      <artifactId>maven-plugin-api</artifactId>
-      <version>2.0</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven.plugins</groupId>
-      <artifactId>maven-dependency-plugin</artifactId>
-      <version>3.6.1</version>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>3.8.1</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.maven.plugin-tools</groupId>
-      <artifactId>maven-plugin-annotations</artifactId>
-      <version>3.9.0</version>
-    </dependency>
-  </dependencies>
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.integratedmodelling</groupId>
+    <artifactId>klab.product</artifactId>
+    <packaging>maven-plugin</packaging>
+    <version>1.0-SNAPSHOT</version>
+    <name>Maven Mojo Archetype</name>
+    <url>http://maven.apache.org</url>
+    <properties>
+        <klab.version>0.11.0-SNAPSHOT</klab.version>
+    </properties>
+    <licenses>
+        <license>
+            <name>GNU Affero General Public License (AGPL) version 3.0</name>
+            <url>http://www.gnu.org/licenses/agpl-3.0.en.html</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Ferdinando Villa</name>
+            <email>ferdinando.villa@bc3research.org</email>
+            <organization>Basque Centre for Climate Change (BC3); IKERBASQUE, Basque foundation for science
+            </organization>
+            <organizationUrl>http://www.bc3research.org</organizationUrl>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:http://github.com/integratedmodelling/klab.product</connection>
+        <developerConnection>scm:git:https://github.com/integratedmodelling/klab.product</developerConnection>
+        <url>https://github.com/integratedmodelling/klab.product.git</url>
+    </scm>
+
+    <organization>
+        <name>integratedmodelling.org</name>
+        <url>http://www.integratedmodelling.org</url>
+    </organization>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+        </repository>
+    </distributionManagement>
+
+    <repositories>
+        <repository>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+            <id>sonatype-nexus-snapshots</id>
+            <name>Maven Central snapshots</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.integratedmodelling</groupId>
+            <artifactId>klab.core.api</artifactId>
+            <version>${klab.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-plugin-api</artifactId>
+            <version>2.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <version>3.6.1</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>3.8.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven.plugin-tools</groupId>
+            <artifactId>maven-plugin-annotations</artifactId>
+            <version>3.9.0</version>
+        </dependency>
+    </dependencies>
 </project>
