@@ -29,7 +29,9 @@ import org.integratedmodelling.klab.api.engine.Product;
 import org.integratedmodelling.klab.api.engine.Release;
 
 import java.io.*;
+import java.nio.file.CopyOption;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.TemporalField;
@@ -153,7 +155,8 @@ public class ProductPackageMojo extends CopyDependenciesMojo {
              * Add the main JAR from the target directory
              */
             Files.copy(mainArtifact.getFile().toPath(),
-                    destDir.toPath().resolve(mainArtifact.getFile().toPath().getFileName()));
+                    destDir.toPath().resolve(mainArtifact.getFile().toPath().getFileName()),
+                    StandardCopyOption.REPLACE_EXISTING);
 
             /**
              * Create the MD5 digest
