@@ -1,0 +1,65 @@
+# k.LAB product management plugin
+
+This package is a simple Maven plugin that automates the building of k.LAB products,
+documentation and other derived artifacts when compiling the k.LAB main stack or components.
+
+Currently the only implemented feature is the generation of k.LAB products with the correspondent
+digest and properties needed for distribution. It is used internally in the k.LAB deployment
+process. Later it will also produce AsciiDoc documentation files from components, functions and adapters configured
+in the code.
+
+The plugin extends the dependency:copy-dependencies mojo of the [Apache Maven dependencies plugin](https://github.com/apache/maven-dependency-plugin)  
+and accepts all the goals and configuration options of the latter. In addition, the following goals are supported:
+
+| Name            | Description                                                                                    |
+|-----------------|------------------------------------------------------------------------------------------------|
+| package-product | Creates a product directory with all dependencies, a product.properties file and a file digest |
+
+
+
+## package-product
+
+The plugin is available on Maven central. It is configured as follows:
+
+```xml
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.integratedmodelling</groupId>
+                <artifactId>klab.product</artifactId>
+                <version>1.0-SNAPSHOT</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>package-product</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <outputDirectory>target/product</outputDirectory>
+                    <productName>klab.server.resources</productName>
+                    <productMain>org.integratedmodelling.resources.server.ResourcesServer</productMain>
+                    <productDescription>The reference implementation of the k.LAB Resources server</productDescription>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+```
+
+The configuration parameters for the `package-product` goal are:
+
+| Name               | Required                    | Values                                           | Description                                                                                                                                          |
+|--------------------|-----------------------------|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| outputDirectory    | no (default `dependencies`) | valid subdirectory string, e.g. `target/product` | The subdirectory of the project directory where the product will be created                                                                          |
+| productName        | yes                         | any string                                       | The name of the k.LAB product                                                                                                                        |
+| productMain        | yes                         | a Java class or file name                        | The name of the Java class containing the main() method for JAR products, or the executable script or file name for executable or installer products |
+| productDescription | no                          | any description                                  | The description of the product                                                                                                                       |
+| productVersion     | no                          | A semantic version number                        | The product version. A timestamp will be appended to it as a build number.                                                                           |
+| productType        | no (default `jar`)          | One of `jar`, `exe`, `script` `installer`        | The type of product (`jar` supported currently)                                                                                                      |
+| productOSSpecific  | no (default false)          | `true` or `false`                                | Whether the product needs OS-specific installation                                                                                                   |
+
+After successful execution, the output directory will contain the product files with the file digest and properties that enable 
+incremental download and product definition for k.LAB installable products.
+
+
+
