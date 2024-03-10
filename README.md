@@ -3,7 +3,7 @@
 This package is a simple Maven plugin that automates the building and testing of k.LAB products,
 documentation and other derived artifacts when compiling the k.LAB main stack or components.
 
-Currently, the only implemented feature is the generation of k.LAB products with the correspondent
+Currently, the only implemented feature is the generation of k.LAB product releases with the correspondent
 digest and properties needed for distribution. It is used internally in the k.LAB deployment
 process. Later it will also produce AsciiDoc documentation files from components, functions and adapters configured
 in the code, and it will expose goals that execute and report on k.LAB test suites implemented in k.Actors.
@@ -13,7 +13,7 @@ and accepts all the goals and configuration options of the latter. In addition, 
 
 | Name            | Description                                                                                    |
 |-----------------|------------------------------------------------------------------------------------------------|
-| package-release | Creates a release directory with all dependencies, a product.properties file and a file digest |
+| package-release | Creates a release directory with all dependencies, a release.properties file and a file digest |
 
 
 
@@ -49,19 +49,19 @@ The plugin is available on Maven central. It is configured as follows:
 
 The configuration parameters for the `package-release` goal are:
 
-| Name               | Required                    | Values                                           | Description                                                                                                                                          |
-|--------------------|-----------------------------|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| outputDirectory    | no (default `dependencies`) | valid subdirectory string, e.g. `target/product` | The subdirectory of the project directory where the product will be created                                                                          |
-| productName        | yes                         | any string                                       | The name of the k.LAB product                                                                                                                        |
-| productMain        | yes                         | a Java class or file name                        | The name of the Java class containing the main() method for JAR products, or the executable script or file name for executable or installer products |
-| productDescription | no                          | any description                                  | The description of the product                                                                                                                       |
-| productVersion     | no                          | A semantic version number                        | The product version. A timestamp will be appended to it as a build number.                                                                           |
-| productType        | no (default `jar`)          | One of `jar`, `exe`, `script` `installer`        | The type of product (`jar` supported currently)                                                                                                      |
-| productClass       | yes                         | A value of the [Product.ProductType](https://docs.integratedmodelling.org/javadocs/org/integratedmodelling/klab/api/engine/Product.ProductType.html) enum      | The class of the generated product                                                                                                                   |
-| productOSSpecific  | no (default false)          | `true` or `false`                                | Whether the product needs OS-specific installation                                                                                                   |
+| Name               | Required                    | Values                                                                                                                                                    | Description                                                                                                                                          |
+|--------------------|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| outputDirectory    | no (default `dependencies`) | valid subdirectory string, e.g. `target/product`                                                                                                          | The subdirectory of the project directory where the product will be created                                                                          |
+| productName        | yes                         | any string                                                                                                                                                | The name of the k.LAB product                                                                                                                        |
+| productMain        | yes                         | a Java class or file name                                                                                                                                 | The name of the Java class containing the main() method for JAR products, or the executable script or file name for executable or installer products |
+| productDescription | no                          | any description                                                                                                                                           | The description of the product                                                                                                                       |
+| productVersion     | no                          | A semantic version number                                                                                                                                 | The product version. A timestamp will be appended to it as a build number.                                                                           |
+| productType        | no (default `jar`)          | One of `jar`, `exe`, `script` `installer`                                                                                                                 | The type of product (`jar` supported currently)                                                                                                      |
+| productClass       | yes                         | A value of the [Product.ProductType](https://docs.integratedmodelling.org/javadocs/org/integratedmodelling/klab/api/engine/Product.ProductType.html) enum | The class of the generated product                                                                                                                   |
+| productOSSpecific  | no (default false)          | `true` or `false`                                                                                                                                         | Whether the product needs OS-specific installation                                                                                                   |
 
 After successful execution, the output directory will contain the release files with the file digest and properties that enable 
-incremental download and product definition for k.LAB installable products.
+construction of a product with incremental download for k.LAB installable products.
 
 
 
