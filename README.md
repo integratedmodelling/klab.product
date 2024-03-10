@@ -3,7 +3,7 @@
 This package is a simple Maven plugin that automates the building and testing of k.LAB products,
 documentation and other derived artifacts when compiling the k.LAB main stack or components.
 
-Currently the only implemented feature is the generation of k.LAB products with the correspondent
+Currently, the only implemented feature is the generation of k.LAB products with the correspondent
 digest and properties needed for distribution. It is used internally in the k.LAB deployment
 process. Later it will also produce AsciiDoc documentation files from components, functions and adapters configured
 in the code, and it will expose goals that execute and report on k.LAB test suites implemented in k.Actors.
@@ -13,7 +13,7 @@ and accepts all the goals and configuration options of the latter. In addition, 
 
 | Name            | Description                                                                                    |
 |-----------------|------------------------------------------------------------------------------------------------|
-| package-product | Creates a product directory with all dependencies, a product.properties file and a file digest |
+| package-release | Creates a release directory with all dependencies, a product.properties file and a file digest |
 
 
 
@@ -31,12 +31,12 @@ The plugin is available on Maven central. It is configured as follows:
                 <executions>
                     <execution>
                         <goals>
-                            <goal>package-product</goal>
+                            <goal>package-release</goal>
                         </goals>
                     </execution>
                 </executions>
                 <configuration>
-                    <outputDirectory>target/product</outputDirectory>
+                    <outputDirectory>target/release</outputDirectory>
                     <productName>klab.server.resources</productName>
                     <productMain>org.integratedmodelling.resources.server.ResourcesServer</productMain>
                     <productDescription>The reference implementation of the k.LAB Resources server</productDescription>
@@ -47,7 +47,7 @@ The plugin is available on Maven central. It is configured as follows:
     </build>
 ```
 
-The configuration parameters for the `package-product` goal are:
+The configuration parameters for the `package-release` goal are:
 
 | Name               | Required                    | Values                                           | Description                                                                                                                                          |
 |--------------------|-----------------------------|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -60,7 +60,7 @@ The configuration parameters for the `package-product` goal are:
 | productClass       | yes                         | A value of the [Product.ProductType](https://docs.integratedmodelling.org/javadocs/org/integratedmodelling/klab/api/engine/Product.ProductType.html) enum      | The class of the generated product                                                                                                                   |
 | productOSSpecific  | no (default false)          | `true` or `false`                                | Whether the product needs OS-specific installation                                                                                                   |
 
-After successful execution, the output directory will contain the product files with the file digest and properties that enable 
+After successful execution, the output directory will contain the release files with the file digest and properties that enable 
 incremental download and product definition for k.LAB installable products.
 
 

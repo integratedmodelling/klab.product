@@ -29,20 +29,18 @@ import org.integratedmodelling.klab.api.engine.Product;
 import org.integratedmodelling.klab.api.engine.Release;
 
 import java.io.*;
-import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.temporal.TemporalField;
 import java.util.Properties;
 
 @Mojo(
-        name = "package-product",
+        name = "package-release",
         requiresDependencyResolution = ResolutionScope.COMPILE,
         defaultPhase = LifecyclePhase.INSTALL,
         threadSafe = true)
-public class ProductPackageMojo extends CopyDependenciesMojo {
+public class ReleasePackageMojo extends CopyDependenciesMojo {
 
     @Parameter(required = true)
     private String productName;
@@ -138,8 +136,8 @@ public class ProductPackageMojo extends CopyDependenciesMojo {
                 outputDirectory,
                 mainArtifact);
 
-        File propertyFile = new File(destDir + File.separator + Release.PRODUCT_PROPERTIES_FILE);
-        File digestFile = new File(destDir + File.separator + Release.PRODUCT_DIGEST_FILE);
+        File propertyFile = new File(destDir + File.separator + Release.RELEASE_PROPERTIES_FILE);
+        File digestFile = new File(destDir + File.separator + Release.RELEASE_DIGEST_FILE);
 
         /**
          * Create all deps in configured directory
@@ -164,7 +162,7 @@ public class ProductPackageMojo extends CopyDependenciesMojo {
             /**
              * Create the MD5 digest
              */
-            Digest.createMD5Digest(destDir, Release.PRODUCT_DIGEST_FILE);
+            Digest.createMD5Digest(destDir, Release.RELEASE_DIGEST_FILE);
 
             /**
              * Create the product definition file
