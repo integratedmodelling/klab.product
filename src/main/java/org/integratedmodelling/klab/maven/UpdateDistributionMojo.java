@@ -24,12 +24,10 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
-import org.apache.maven.plugins.dependency.fromDependencies.CopyDependenciesMojo;
-import org.apache.maven.plugins.dependency.utils.DependencyUtil;
 import org.apache.maven.project.MavenProject;
-import org.integratedmodelling.klab.api.data.Version;
-import org.integratedmodelling.klab.api.engine.Product;
-import org.integratedmodelling.klab.api.engine.Release;
+import org.integratedmodelling.klab.api.collections.Pair;
+import org.integratedmodelling.klab.api.engine.distribution.Product;
+import org.integratedmodelling.klab.api.engine.distribution.Release;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -42,6 +40,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 
@@ -50,6 +50,13 @@ import java.util.stream.Stream;
  * targets. If a distributionUrl parameter is passed, use the correspondent files as templates and update
  * them, adding any new release and new product found. In that case, the maxReleasesPerProduct parameter
  * controls the number of releases kept around.
+ *
+ * Default release structure is in target/distribution of the main project and contains the distribution.properties
+ * file with the list of products, each corresponding to a subdirectory with the product's name and the same structure
+ * for all the releases. The Maven plugin builds one release only, but synchronizes with the contents of anything
+ * already on the web at the remoteDistributionUrl parameter (if passed), so that the contents can be uploaded
+ * as a unit without changes. The local path to the release files is also filled in to allow local use in case the
+ * production release files aren't moved to the product directory (moveReleaseFiles parameter).
  */
 @Mojo(
         name = "update-distribution",
@@ -67,6 +74,9 @@ public class UpdateDistributionMojo extends AbstractMojo {
     @Parameter(readonly = true, required = false)
     private int maxReleasesPerProduct;
 
+    @Parameter(readonly = true, required = false, defaultValue = "true")
+    private boolean moveReleaseFiles;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
 
@@ -74,10 +84,14 @@ public class UpdateDistributionMojo extends AbstractMojo {
             // TODO pre-populate the property files and define the local product paths
         }
 
+        List<Pair<Product.ProductType, File>> releaseFiles = new ArrayList<>();
+
         try (var walker = Files.walk(project.getFile().toPath(), FileVisitOption.FOLLOW_LINKS)) {
-            for (var productFile :
+            for (var releaseFile :
                     walker.filter(path -> path.toString().endsWith(Release.RELEASE_PROPERTIES_FILE)).toList()) {
 
+                    var release = Release.create(releaseFile.toFile());
+                    releaseFiles.add(Pair.of(release.getProduct().getProductType(), releaseFile.toFile()));
                     /*
                     build release, find or create the correspondent product
                      */

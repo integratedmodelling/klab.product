@@ -11,10 +11,10 @@ in the code, and it will expose goals that execute and report on k.LAB test suit
 The plugin extends the dependency:copy-dependencies mojo of the [Apache Maven dependencies plugin](https://github.com/apache/maven-dependency-plugin)  
 and accepts all the goals and configuration options of the latter. In addition, the following goals are supported:
 
-| Name            | Description                                                                                    |
-|-----------------|------------------------------------------------------------------------------------------------|
-| package-release | Creates a release directory with all dependencies, a release.properties file and a file digest |
-
+| Name                | Description                                                                                                     |
+|---------------------|-----------------------------------------------------------------------------------------------------------------|
+| package-release     | Creates a release directory with all dependencies, a release.properties file and a file digest                  |
+| update-distribution | Create the distribution.properties and product.properties files for all products found in the compiled targets. |
 
 
 ## package-product
@@ -63,5 +63,17 @@ The configuration parameters for the `package-release` goal are:
 After successful execution, the output directory will contain the release files with the file digest and properties that enable 
 construction of a product with incremental download for k.LAB installable products.
 
+## update-distribution
 
+Create the distribution.properties and product.properties files for all products found in the compiled 
+targets. If a distributionUrl parameter is passed, use the correspondent files as templates and update
+them, adding any new release and new product found. In that case, the maxReleasesPerProduct parameter
+controls the number of releases kept around.
+
+Default release structure is in target/distribution of the main project and contains the distribution.properties
+file with the list of products, each corresponding to a subdirectory with the product's name and the same structure
+for all the releases. The Maven plugin builds one release only, but synchronizes with the contents of anything
+already on the web at the remoteDistributionUrl parameter (if passed), so that the contents can be uploaded
+as a unit without changes. The local path to the release files is also filled in to allow local use in case the
+production release files aren't moved to the product directory (moveReleaseFiles parameter).
 

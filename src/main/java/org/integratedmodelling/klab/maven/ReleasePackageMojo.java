@@ -25,8 +25,8 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.fromDependencies.CopyDependenciesMojo;
 import org.apache.maven.plugins.dependency.utils.DependencyUtil;
 import org.integratedmodelling.klab.api.data.Version;
-import org.integratedmodelling.klab.api.engine.Product;
-import org.integratedmodelling.klab.api.engine.Release;
+import org.integratedmodelling.klab.api.engine.distribution.Product;
+import org.integratedmodelling.klab.api.engine.distribution.Release;
 
 import java.io.*;
 import java.nio.file.Files;
