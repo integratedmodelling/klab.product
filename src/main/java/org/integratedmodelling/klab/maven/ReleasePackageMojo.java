@@ -25,6 +25,7 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.plugins.dependency.fromDependencies.CopyDependenciesMojo;
 import org.apache.maven.plugins.dependency.utils.DependencyUtil;
 import org.integratedmodelling.klab.api.data.Version;
+import org.integratedmodelling.klab.api.engine.distribution.Build;
 import org.integratedmodelling.klab.api.engine.distribution.Product;
 import org.integratedmodelling.klab.api.engine.distribution.Release;
 
@@ -136,8 +137,8 @@ public class ReleasePackageMojo extends CopyDependenciesMojo {
                 outputDirectory,
                 mainArtifact);
 
-        File propertyFile = new File(destDir + File.separator + Release.RELEASE_PROPERTIES_FILE);
-        File digestFile = new File(destDir + File.separator + Release.RELEASE_DIGEST_FILE);
+        File propertyFile = new File(destDir + File.separator + Build.BUILD_PROPERTIES_FILE);
+        File digestFile = new File(destDir + File.separator + Build.BUILD_DIGEST_FILE);
 
         /**
          * Create all deps in configured directory
@@ -162,7 +163,7 @@ public class ReleasePackageMojo extends CopyDependenciesMojo {
             /**
              * Create the MD5 digest
              */
-            Digest.createMD5Digest(destDir, Release.RELEASE_DIGEST_FILE);
+            Digest.createMD5Digest(destDir, Build.BUILD_DIGEST_FILE);
 
             /**
              * Create the product definition file
@@ -178,12 +179,12 @@ public class ReleasePackageMojo extends CopyDependenciesMojo {
             properties.setProperty(Product.PRODUCT_NAME_PROPERTY, productName);
             properties.setProperty(Product.PRODUCT_DESCRIPTION_PROPERTY, productDescription == null ? "No " +
                     "description given" : productDescription);
-            properties.setProperty(Product.PRODUCT_OSSPECIFIC_PROPERTY, productOSSpecific ? "true" : "false");
+            properties.setProperty(Build.PRODUCT_OSSPECIFIC_PROPERTY, productOSSpecific ? "true" : "false");
             properties.setProperty(Product.PRODUCT_TYPE_PROPERTY, productType);
             properties.setProperty(Product.PRODUCT_CLASS_PROPERTY, productClass.name());
-            properties.setProperty(Product.BUILD_MAINCLASS_PROPERTY, productMain);
-            properties.setProperty(Product.BUILD_TIME_PROPERTY, System.currentTimeMillis() + "");
-            properties.setProperty(Product.BUILD_VERSION_PROPERTY, productVersion + "." + timestamp);
+            properties.setProperty(Build.BUILD_MAINCLASS_PROPERTY, productMain);
+            properties.setProperty(Build.BUILD_TIME_PROPERTY, System.currentTimeMillis() + "");
+            properties.setProperty(Build.BUILD_VERSION_PROPERTY, productVersion + "." + timestamp);
 
             try (OutputStream out =
                          new FileOutputStream(propertyFile)) {
