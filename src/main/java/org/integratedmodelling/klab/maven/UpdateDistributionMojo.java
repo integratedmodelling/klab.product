@@ -18,6 +18,7 @@ package org.integratedmodelling.klab.maven;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.lifecycle.internal.BuildListCalculator;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -27,14 +28,12 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.integratedmodelling.klab.api.collections.Pair;
-import org.integratedmodelling.klab.api.engine.distribution.Build;
-import org.integratedmodelling.klab.api.engine.distribution.Distribution;
-import org.integratedmodelling.klab.api.engine.distribution.Product;
-import org.integratedmodelling.klab.api.engine.distribution.RunningInstance;
+import org.integratedmodelling.klab.api.engine.distribution.*;
 import org.integratedmodelling.klab.api.engine.distribution.impl.BuildImpl;
 import org.integratedmodelling.klab.api.engine.distribution.impl.ProductImpl;
 import org.integratedmodelling.klab.api.scope.Scope;
-import org.integratedmodelling.klab.api.utils.PropertiesBasedObject;
+import org.integratedmodelling.klab.api.utils.PropertyBean;
+import org.integratedmodelling.klab.api.utils.Utils;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,10 +41,13 @@ import java.net.URL;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
  * Create the distribution.properties and product.properties files for all products found in the compiled
@@ -89,7 +91,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
     @Parameter(required = true)
     private String distributionVersion;
 
-    @Parameter(required = false, defaultValue = "distribution")
+    @Parameter(required = false, defaultValue = "target/distribution")
     private String outputDirectory;
 
     /**
@@ -106,13 +108,6 @@ public class UpdateDistributionMojo extends AbstractMojo {
      */
     @Parameter(required = false, defaultValue = "false")
     private boolean synchronizeRemoteBuilds;
-
-    /**
-     * Move the build files from the original directory to the distribution. If false, only the
-     * build.properties files are generated.
-     */
-    @Parameter(required = false, defaultValue = "true")
-    private boolean moveReleaseFiles;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -152,29 +147,67 @@ public class UpdateDistributionMojo extends AbstractMojo {
                 return;
             }
 
-            File distributionDirectory = new File(project.getFile() + File.separator + outputDirectory);
+            File distributionDirectory = new File(project.getBasedir() + File.separator + outputDirectory);
             distributionDirectory.mkdirs();
             var distributionPropertiesFile =
                     new File(distributionDirectory + File.separator + Distribution.DISTRIBUTION_PROPERTIES_FILE);
 
-
+            String productNames = "";
 
             for (var productName : products.keySet()) {
+
+                productNames += (productNames.isEmpty() ? "" : ",") + productName;
 
                 var productDirectory = new File(distributionDirectory + File.separator + productName);
                 productDirectory.mkdirs();
 
+                var productProperties =
+                        new PropertyBean(new File(productDirectory + File.separator + Product.PRODUCT_PROPERTIES_FILE));
+                // TODO merge with existing ones
                 var releaseDirectory = new File(productDirectory + File.separator + releaseName);
                 releaseDirectory.mkdirs();
 
+                var releaseProperties =
+                        new PropertyBean(new File(releaseDirectory + File.separator + Release.RELEASE_PROPERTIES_FILE));
+                releaseProperties.setProperty(Release.RELEASE_NAME_PROPERTY, releaseName);
+                String buildNames = "";
+
                 for (var build : builds) {
                     if (build.getSecond().getProduct().getName().equals(productName)) {
-                        if (moveReleaseFiles) {
-
-                        }
+                        var buildProperties = new PropertyBean(build.getFirst());
+                        var buildName =
+                                Utils.Paths.getLast(buildProperties.getProperty(Build.BUILD_VERSION_PROPERTY), '.');
+                        File destination = new File(releaseDirectory + File.separator + buildName);
+                        destination.mkdirs();
+                        getLog().info("Moving " + releaseName + " build " + buildName + " of product " + productName + " from " + build.getFirst().toPath().getParent() + " to " + destination);
+                        Files.move(build.getFirst().toPath().getParent(), destination.toPath(),
+                                REPLACE_EXISTING);
+                        buildProperties.setProperty(Build.BUILD_WORKSPACE_PROPERTY,
+                                destination.toPath().normalize().toString());
+                        buildProperties.saveProperties(new File(destination + File.separator + Build.BUILD_PROPERTIES_FILE));
+                        buildNames += (buildNames.isEmpty() ? "" : ",") + buildName;
                     }
                 }
+
+                releaseProperties.setProperty(Release.BUILD_VERSIONS_PROPERTY, buildNames);
+                releaseProperties.saveProperties();
+
+                // TODO merge with existing
+                productProperties.setProperty(Product.RELEASE_NAMES_PROPERTY, releaseName);
+                productProperties.saveProperties();
             }
+
+            var distribution = new PropertyBean(distributionPropertiesFile);
+            distribution.setProperty(Distribution.DISTRIBUTION_NAME_PROPERTY,
+                    distributionName);
+            distribution.setProperty(Distribution.DISTRIBUTION_DATE_PROPERTY,
+                    Instant.now().toString());
+            distribution.setProperty(Distribution.DISTRIBUTION_PRODUCTS_PROPERTY,
+                    productNames);
+            distribution.saveProperties();
+
+            getLog().info("Distribution created in " + distributionDirectory + " with " + products.size() + " products");
+
 
         } catch (IOException e) {
             throw new MojoExecutionException(e.getMessage());
