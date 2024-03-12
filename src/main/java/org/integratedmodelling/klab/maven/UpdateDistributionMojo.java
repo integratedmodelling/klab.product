@@ -227,7 +227,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
     }
 
     private static BuildImpl getBuild(Path releaseFile) {
-        var build = new LocalBuildImpl(releaseFile.toFile(), null, null);
+        var build = new LocalBuildImpl(releaseFile.toFile(), null,null, null);
         build.setLocalWorkspace(releaseFile.getParent().toFile());
         return build;
     }
