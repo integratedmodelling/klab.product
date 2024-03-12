@@ -16,9 +16,7 @@ package org.integratedmodelling.klab.maven;
  * limitations under the License.
  */
 
-import org.apache.maven.artifact.Artifact;
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.lifecycle.internal.BuildListCalculator;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -30,8 +28,7 @@ import org.apache.maven.project.MavenProject;
 import org.integratedmodelling.klab.api.collections.Pair;
 import org.integratedmodelling.klab.api.engine.distribution.*;
 import org.integratedmodelling.klab.api.engine.distribution.impl.BuildImpl;
-import org.integratedmodelling.klab.api.engine.distribution.impl.ProductImpl;
-import org.integratedmodelling.klab.api.scope.Scope;
+import org.integratedmodelling.klab.api.engine.distribution.impl.LocalBuildImpl;
 import org.integratedmodelling.klab.api.utils.PropertyBean;
 import org.integratedmodelling.klab.api.utils.Utils;
 
@@ -42,10 +39,7 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
@@ -117,7 +111,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
         }
 
         List<Pair<File, BuildImpl>> builds = new ArrayList<>();
-        Map<String, ProductImpl> products = new HashMap<>();
+        Set<String> products = new HashSet<>();
         var rootDirectory = Path.of(mavenSession.getExecutionRootDirectory());
 
         /*
@@ -127,13 +121,12 @@ public class UpdateDistributionMojo extends AbstractMojo {
             for (var releaseFile :
                     walker.filter(path -> path.toString().endsWith(Build.BUILD_PROPERTIES_FILE)).toList()) {
 
-                var build = getBuild(releaseFile);
-
-                if (!products.containsKey(build.getProduct().getName())) {
-                    products.put(build.getProduct().getName(), build.getProduct());
-                }
-
                 getLog().info("Detected build file " + releaseFile);
+
+                var build = getBuild(releaseFile);
+                if (!products.contains(build.getProperty(Product.PRODUCT_NAME_PROPERTY))) {
+                    products.add(build.getProperty(Product.PRODUCT_NAME_PROPERTY));
+                }
 
                 builds.add(Pair.of(releaseFile.toFile(), build));
             }
@@ -154,7 +147,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
 
             String productNames = "";
 
-            for (var productName : products.keySet()) {
+            for (var productName : products) {
 
                 productNames += (productNames.isEmpty() ? "" : ",") + productName;
 
@@ -172,9 +165,23 @@ public class UpdateDistributionMojo extends AbstractMojo {
                 releaseProperties.setProperty(Release.RELEASE_NAME_PROPERTY, releaseName);
                 String buildNames = "";
 
+                Product.ProductType productClass = null;
+                Product.Type productType = null;
+                String productDescription = null;
+
                 for (var build : builds) {
-                    if (build.getSecond().getProduct().getName().equals(productName)) {
+
+                    if (build.getSecond().getProperty(Product.PRODUCT_NAME_PROPERTY).equals(productName)) {
+
                         var buildProperties = new PropertyBean(build.getFirst());
+
+                        productClass =
+                                Product.ProductType.valueOf(build.getSecond().getProperty(Product.PRODUCT_CLASS_PROPERTY));
+                        productType =
+                                Product.Type.forOption(build.getSecond().getProperty(Product.PRODUCT_TYPE_PROPERTY));
+                        productDescription =
+                                build.getSecond().getProperty(Product.PRODUCT_DESCRIPTION_PROPERTY);
+
                         var buildName =
                                 Utils.Paths.getLast(buildProperties.getProperty(Build.BUILD_VERSION_PROPERTY), '.');
                         File destination = new File(releaseDirectory + File.separator + buildName);
@@ -193,6 +200,10 @@ public class UpdateDistributionMojo extends AbstractMojo {
                 releaseProperties.saveProperties();
 
                 // TODO merge with existing
+                productProperties.setProperty(Product.PRODUCT_DESCRIPTION_PROPERTY, productDescription, "No" +
+                        " description given");
+                productProperties.setProperty(Product.PRODUCT_CLASS_PROPERTY, productClass.name());
+                productProperties.setProperty(Product.PRODUCT_TYPE_PROPERTY, productType.userOption);
                 productProperties.setProperty(Product.RELEASE_NAMES_PROPERTY, releaseName);
                 productProperties.saveProperties();
             }
@@ -209,34 +220,14 @@ public class UpdateDistributionMojo extends AbstractMojo {
             getLog().info("Distribution created in " + distributionDirectory + " with " + products.size() + " products");
 
 
-        } catch (IOException e) {
+        } catch (Throwable e) {
+            e.printStackTrace();
             throw new MojoExecutionException(e.getMessage());
         }
     }
 
     private static BuildImpl getBuild(Path releaseFile) {
-        var build = new BuildImpl(releaseFile.toFile()) {
-            @Override
-            public Product.Status getStatus() {
-                return null;
-            }
-
-            @Override
-            public boolean synchronize(Scope scope) {
-                return false;
-            }
-
-            @Override
-            public RunningInstance launch(Scope scope) {
-                return null;
-            }
-
-            @Override
-            public String getRemotePath() {
-                return null;
-            }
-        };
-
+        var build = new LocalBuildImpl(releaseFile.toFile(), null, null);
         build.setLocalWorkspace(releaseFile.getParent().toFile());
         return build;
     }
