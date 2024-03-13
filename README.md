@@ -72,8 +72,9 @@ controls the number of releases kept around.
 
 Default release structure is in target/distribution of the main project and contains the distribution.properties
 file with the list of products, each corresponding to a subdirectory with the product's name and the same structure
-for all the releases. The Maven plugin builds one release only, but synchronizes with the contents of anything
+for all the releases. Each release contains one of more versions that are placed in a subdirectory build from the current date (precise to the minute). The Maven plugin builds one release only, but synchronizes with the contents of anything
 already on the web at the remoteDistributionUrl parameter (if passed), so that the contents can be uploaded
-as a unit without changes. The local path to the release files is also filled in to allow local use in case the
-production release files aren't moved to the product directory (moveReleaseFiles parameter).
+as a unit without changes. The local path to the release files is also filled in to allow local use right out of the box.
+
+The goal should be used in a submodule that depends on all the modules that produce builds using `package-product`. After it ran, the builds will be moved to the configured subdirectory of the `update-distribution` goal (by default `target/distribution`). Because the builds will be tagged with the current date, it is important to run `clean` before, unless the older releases need to be kept. Not doing so will create serious storage occupation.
 
