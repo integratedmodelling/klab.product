@@ -18,7 +18,6 @@ public class Digest {
      *
      * @param directory the directory
      * @param fileName  the file name
-     * @throws org.integratedmodelling.klab.api.exceptions.KlabException the klab exception
      */
     public static void createMD5Digest(File directory, String fileName) {
 
@@ -46,22 +45,12 @@ public class Digest {
             } else {
                 try (FileInputStream fis = new FileInputStream(f)) {
                     String md5 = org.apache.commons.codec.digest.DigestUtils.md5Hex(fis);
-                    digest.add(md5 + "  " + pathPrefix + "/" + Utils.Files.getFileName(f.toString()));
+                    digest.add(md5 + "  " + pathPrefix + "/" + Utils.Files.getFileName(f.toString()) + " " + f.length());
                 } catch (IOException e) {
                     throw new KlabIOException(e);
                 }
             }
         }
-    }
-
-    public static String getFileHash(File file) {
-        String ret = "";
-        try (FileInputStream fis = new FileInputStream(file)) {
-            ret = org.apache.commons.codec.digest.DigestUtils.md5Hex(fis);
-        } catch (IOException e) {
-            throw new KlabIOException(e);
-        }
-        return ret;
     }
 
 }

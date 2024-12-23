@@ -124,9 +124,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
                 getLog().info("Detected build file " + releaseFile);
 
                 var build = getBuild(releaseFile);
-                if (!products.contains(build.getProperty(Product.PRODUCT_NAME_PROPERTY))) {
-                    products.add(build.getProperty(Product.PRODUCT_NAME_PROPERTY));
-                }
+                products.add(build.getProperty(Product.PRODUCT_NAME_PROPERTY));
 
                 builds.add(Pair.of(releaseFile.toFile(), build));
             }
@@ -135,7 +133,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
             Build the distribution file
             TODO handle merge with networked distro
              */
-            if (products.size() == 0) {
+            if (products.isEmpty()) {
                 getLog().info("Distribution generator: no products detected in configured path (" + rootDirectory + "). Exiting.");
                 return;
             }
