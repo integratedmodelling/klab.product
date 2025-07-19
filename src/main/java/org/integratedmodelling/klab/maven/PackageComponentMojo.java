@@ -1,51 +1,23 @@
 package org.integratedmodelling.klab.maven;
 
-/*
- * Copyright 2001-2005 The Apache Software Foundation.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-
 import java.io.File;
-import java.net.URL;
-import java.nio.file.FileVisitOption;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 import java.util.Map;
-import org.apache.maven.execution.MavenSession;
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
-import org.apache.maven.plugins.annotations.*;
-import org.apache.maven.repository.RepositorySystem;
-import org.apache.maven.artifact.Artifact;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.project.MavenProject;
+import org.apache.maven.plugins.annotations.*;
 import org.apache.maven.plugins.shade.DefaultShader;
 import org.apache.maven.plugins.shade.ShadeRequest;
 import org.apache.maven.plugins.shade.resource.ManifestResourceTransformer;
-import org.apache.maven.plugins.shade.filter.SimpleFilter;
-import org.integratedmodelling.klab.api.collections.Pair;
+import org.apache.maven.project.MavenProject;
+import org.apache.maven.repository.RepositorySystem;
 import org.integratedmodelling.klab.api.engine.distribution.*;
-import org.integratedmodelling.klab.api.engine.distribution.impl.BuildImpl;
-import org.integratedmodelling.klab.api.engine.distribution.impl.LocalBuildImpl;
-import org.integratedmodelling.klab.api.utils.PropertyBean;
-import org.integratedmodelling.klab.api.utils.Utils;
 
 /**
  * Create a k.LAB component plug-in with the same name as the original Jar but with a -klab
@@ -234,11 +206,7 @@ public class PackageComponentMojo extends AbstractMojo {
           // Create the artifact using RepositorySystem
           Artifact klabArtifact =
               repositorySystem.createArtifactWithClassifier(
-                  project.getGroupId(),
-                  project.getArtifactId(),
-                  project.getVersion(),
-                  "jar",
-                  "klab");
+                  project.getGroupId(), project.getArtifactId(), project.getVersion(), "kar", null);
 
           // Set the file for the created artifact
           klabArtifact.setFile(jarFile);
