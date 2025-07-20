@@ -78,3 +78,14 @@ as a unit without changes. The local path to the release files is also filled in
 
 The goal should be used in a submodule that depends on all the modules that produce builds using `package-product`. After it ran, the builds will be moved to the configured subdirectory of the `update-distribution` goal (by default `target/distribution`). Because the builds will be tagged with the current date, it is important to run `clean` before, unless the older releases need to be kept. Not doing so will create serious storage occupation.
 
+## package-component
+
+Use in a component `pom.xml` to build the component file that can be deployed in Maven. The file is a fat jar with extension
+`kar`, to be used as `type` in the Maven dependency. It contains all the necessary plug-in metadata, some of which must
+be supplied in configuration, and all the binary Java classes needed for it to run, excluding any class that is already provided
+in the k.LAB runtime that loads the plug-in.
+
+TODO document configuration
+
+The Maven-based component loader in k.LAB services will automatically look for the .kar files for the passed groupId and
+artifactId, assuming components are packaged using this plug-in.

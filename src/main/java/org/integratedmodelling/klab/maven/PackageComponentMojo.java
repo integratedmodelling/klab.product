@@ -21,7 +21,9 @@ import org.integratedmodelling.klab.api.engine.distribution.*;
 
 /**
  * Create a k.LAB component plug-in with the same name as the original Jar but with a -klab
- * classifier appended. The plug-in jar is added to the artifact so that it's deployed in Maven.
+ * classifier appended. The plug-in jar is added to the artifact with <code>kar</code> type, so that
+ * it's deployed in Maven as <code><type>kar</type></code>and can be retrieved along with the normal
+ * jar.
  *
  * <p>The finished plug-in is an uber-jar with p4j plugin metadata, containing binary classes for
  * all dependencies in its closure except those already included by the core k.LAB distribution that
@@ -82,7 +84,8 @@ public class PackageComponentMojo extends AbstractMojo {
 
   @Parameter(
       required = false,
-      defaultValue = "${project.build.directory}/${project.artifactId}-klab-${project.version}.jar")
+      defaultValue =
+          "${project.build.directory}/${project.artifactId}-component-${project.version}.jar")
   private String outputJar;
 
   @Parameter(required = false)
@@ -203,10 +206,18 @@ public class PackageComponentMojo extends AbstractMojo {
         // Attach the created JAR as an additional artifact
         File jarFile = new File(outputJar);
         if (jarFile.exists()) {
-          // Create the artifact using RepositorySystem
+          // Create the artifact using RepositorySystem. Archive will have -component classifier and
+          // kar as a type.
+          // Cannot retrieve any sub-artifact without a classifier, apparently. This should enable
+          // retrieving .md5 from
+          // a non-local repo, too (maybe not).
           Artifact klabArtifact =
               repositorySystem.createArtifactWithClassifier(
-                  project.getGroupId(), project.getArtifactId(), project.getVersion(), "kar", null);
+                  project.getGroupId(),
+                  project.getArtifactId(),
+                  project.getVersion(),
+                  "kar",
+                  "component");
 
           // Set the file for the created artifact
           klabArtifact.setFile(jarFile);
