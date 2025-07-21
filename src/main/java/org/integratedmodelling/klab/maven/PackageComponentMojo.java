@@ -149,12 +149,13 @@ public class PackageComponentMojo extends AbstractMojo {
       for (Artifact artifact : artifactsIncluded) {
         getLog()
             .info(
-                "Keep "
+                "Artifact "
                     + artifact.getGroupId()
                     + ":"
                     + artifact.getArtifactId()
                     + ":"
-                    + artifact.getVersion());
+                    + artifact.getVersion()
+                    + " included in k.LAB component");
       }
 
       getLog()
@@ -198,19 +199,19 @@ public class PackageComponentMojo extends AbstractMojo {
           componentLicenseUrl == null ? "No license URL" : componentLicenseUrl);
 
       // Create the output jar using Maven Shade Plugin
-      getLog().info("Packaging component to: " + outputJar);
       try {
         createOutputJar(artifactsIncluded);
-        getLog().info("Component packaged successfully to: " + outputJar);
 
         // Attach the created JAR as an additional artifact
         File jarFile = new File(outputJar);
         if (jarFile.exists()) {
-          // Create the artifact using RepositorySystem. Archive will have -component classifier and
-          // kar as a type.
-          // Cannot retrieve any sub-artifact without a classifier, apparently. This should enable
-          // retrieving .md5 from
-          // a non-local repo, too (maybe not).
+          /*
+          Create the component artifact using RepositorySystem. Archive will have -component classifier and
+          kar as a type.Cannot retrieve any sub-artifact without a classifier, apparently. This
+          should enable the deployment of the .kar to remote repositories. The .md5 hash is made for the
+          jar, but still serves as a checksum for the component as long as it's not recomputed directly on
+          it.
+          */
           Artifact klabArtifact =
               repositorySystem.createArtifactWithClassifier(
                   project.getGroupId(),
@@ -226,7 +227,8 @@ public class PackageComponentMojo extends AbstractMojo {
           project.addAttachedArtifact(klabArtifact);
 
           getLog()
-              .info("Attached K.LAB component JAR as additional artifact with classifier 'klab'");
+              .info(
+                  "Created K.LAB component KAR file as additional artifact with classifier 'component'");
         }
       } catch (Exception e) {
         throw new MojoExecutionException("Failed to create output jar", e);
