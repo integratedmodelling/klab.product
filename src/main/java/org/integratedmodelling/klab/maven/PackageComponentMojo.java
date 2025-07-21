@@ -228,7 +228,13 @@ public class PackageComponentMojo extends AbstractMojo {
 
           getLog()
               .info(
+                  "------------------------------------------------------------------------------------");
+          getLog()
+              .info(
                   "Created K.LAB component KAR file as additional artifact with classifier 'component'");
+          getLog()
+              .info(
+                  "------------------------------------------------------------------------------------");
         }
       } catch (Exception e) {
         throw new MojoExecutionException("Failed to create output jar", e);
