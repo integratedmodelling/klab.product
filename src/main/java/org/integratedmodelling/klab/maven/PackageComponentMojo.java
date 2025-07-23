@@ -315,8 +315,35 @@ public class PackageComponentMojo extends AbstractMojo {
           public void modifyOutputStream(JarOutputStream os) throws IOException {}
         };
 
-    // Add both transformers to the shade request
-    shadeRequest.setResourceTransformers(Arrays.asList(manifestTransformer, filterTransformer));
+    // Remove all signature files with yet another filter transformer, or the plugin will never be
+    // 1oaded
+    ResourceTransformer signatureFilterTransformer =
+        new ResourceTransformer() {
+          @Override
+          public boolean canTransformResource(String resource) {
+            return resource.endsWith(".SF")
+                || resource.endsWith(".RSA")
+                || resource.endsWith(".DSA")
+                || resource.contains("SIG-");
+          }
+
+          @Override
+          public void processResource(String resource, InputStream is, List<Relocator> relocators) {
+            // Skip the resource
+          }
+
+          @Override
+          public boolean hasTransformedResource() {
+            return false;
+          }
+
+          @Override
+          public void modifyOutputStream(JarOutputStream os) {}
+        };
+
+    // Add all transformers to the shade request
+    shadeRequest.setResourceTransformers(
+        Arrays.asList(manifestTransformer, filterTransformer, signatureFilterTransformer));
 
     // Shade the jar
     shader.shade(shadeRequest);
