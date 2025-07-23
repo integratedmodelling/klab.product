@@ -1,9 +1,12 @@
 package org.integratedmodelling.klab.maven;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.*;
 import java.util.Map;
+import java.util.jar.JarOutputStream;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
@@ -14,7 +17,9 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
 import org.apache.maven.plugins.shade.DefaultShader;
 import org.apache.maven.plugins.shade.ShadeRequest;
+import org.apache.maven.plugins.shade.relocation.Relocator;
 import org.apache.maven.plugins.shade.resource.ManifestResourceTransformer;
+import org.apache.maven.plugins.shade.resource.ResourceTransformer;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.repository.RepositorySystem;
 import org.integratedmodelling.klab.api.engine.distribution.*;
@@ -286,8 +291,32 @@ public class PackageComponentMojo extends AbstractMojo {
     ManifestResourceTransformer manifestTransformer = new ManifestResourceTransformer();
     manifestTransformer.setManifestEntries(manifestEntries);
 
-    // Add the transformer to the shade request
-    shadeRequest.setResourceTransformers(Collections.singletonList(manifestTransformer));
+    // Add resource transformer that filters out plugin.properties, which may come from shaded
+    // artifacts
+    ResourceTransformer filterTransformer =
+        new ResourceTransformer() {
+          @Override
+          public boolean canTransformResource(String resource) {
+            return "plugin.properties".equals(resource);
+          }
+
+          @Override
+          public void processResource(String resource, InputStream is, List<Relocator> relocators)
+              throws IOException {
+            // Skip the resource
+          }
+
+          @Override
+          public boolean hasTransformedResource() {
+            return false;
+          }
+
+          @Override
+          public void modifyOutputStream(JarOutputStream os) throws IOException {}
+        };
+
+    // Add both transformers to the shade request
+    shadeRequest.setResourceTransformers(Arrays.asList(manifestTransformer, filterTransformer));
 
     // Shade the jar
     shader.shade(shadeRequest);
