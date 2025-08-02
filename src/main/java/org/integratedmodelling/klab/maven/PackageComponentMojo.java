@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.*;
+import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
+import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
 import java.util.Map;
 import java.util.jar.JarOutputStream;
 import org.apache.maven.artifact.Artifact;
@@ -50,6 +52,7 @@ public class PackageComponentMojo extends AbstractMojo {
   private MavenSession mavenSession;
 
   @Component private RepositorySystem repositorySystem;
+  @Component private ArtifactHandlerManager artifactHandlerManager;
 
   @Parameter(required = true)
   private String componentName;
@@ -150,6 +153,48 @@ public class PackageComponentMojo extends AbstractMojo {
 
       // these are the artifacts to keep in the plug-in
       artifactsIncluded.removeAll(artifactsExcluded);
+
+      // last pass, only keep the same versions of the same artifacts if it's there in multiple
+      // versions, and give a warning
+      LinkedHashMap<String, Artifact> artifactVersions = new LinkedHashMap<>();
+      for (var artifact : artifactsIncluded) {
+        var existing = artifactVersions.get(artifact.getGroupId() + ":" + artifact.getArtifactId());
+        if (existing == null) {
+          artifactVersions.put(artifact.getGroupId() + ":" + artifact.getArtifactId(), artifact);
+        } else if (!existing.getVersion().equals(artifact.getVersion())) {
+          DefaultArtifactVersion existingVersion =
+              new DefaultArtifactVersion(existing.getVersion());
+          DefaultArtifactVersion newVersion = new DefaultArtifactVersion(artifact.getVersion());
+
+          if (existingVersion.compareTo(newVersion) < 0) {
+            artifactVersions.put(artifact.getGroupId() + ":" + artifact.getArtifactId(), artifact);
+            getLog()
+                .warn(
+                    "Multiple versions of "
+                        + artifact.getGroupId()
+                        + ":"
+                        + artifact.getArtifactId()
+                        + " found in the project dependencies. Using "
+                        + artifact.getVersion()
+                        + " instead of "
+                        + existing.getVersion());
+          } else if (existingVersion.compareTo(newVersion) > 0) {
+            getLog()
+                .warn(
+                    "Multiple versions of "
+                        + artifact.getGroupId()
+                        + ":"
+                        + artifact.getArtifactId()
+                        + " found in the project dependencies. Using "
+                        + existing.getVersion()
+                        + " instead of "
+                        + artifact.getVersion());
+          }
+        }
+      }
+
+      artifactsIncluded.clear();
+      artifactsIncluded.addAll(artifactVersions.values());
 
       for (Artifact artifact : artifactsIncluded) {
         getLog()
