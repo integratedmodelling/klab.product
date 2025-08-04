@@ -145,8 +145,7 @@ public class PackageComponentMojo extends AbstractMojo {
 
       for (String dependency : projectDependencies) {
         var deps = resolvedArtifacts.get(dependency);
-        artifactsIncluded.addAll(
-            deps.stream().filter(a -> "compile".equals(a.getScope())).toList());
+        artifactsIncluded.addAll(deps.stream().filter(a -> !"test".equals(a.getScope())).toList());
         if (isCoreProject(dependency)) {
           artifactsExcluded.addAll(deps);
         }
