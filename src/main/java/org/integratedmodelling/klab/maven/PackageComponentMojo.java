@@ -5,13 +5,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.*;
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 import org.apache.maven.artifact.handler.manager.ArtifactHandlerManager;
-import java.util.Map;
-import java.util.jar.JarOutputStream;
-import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
+import java.util.Map;
+import java.util.jar.JarOutputStream;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -145,7 +145,8 @@ public class PackageComponentMojo extends AbstractMojo {
 
       for (String dependency : projectDependencies) {
         var deps = resolvedArtifacts.get(dependency);
-        artifactsIncluded.addAll(deps);
+        artifactsIncluded.addAll(
+            deps.stream().filter(a -> "compile".equals(a.getScope())).toList());
         if (isCoreProject(dependency)) {
           artifactsExcluded.addAll(deps);
         }
