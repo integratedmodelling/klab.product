@@ -24,6 +24,7 @@ import org.apache.maven.plugins.shade.resource.ManifestResourceTransformer;
 import org.apache.maven.plugins.shade.resource.ResourceTransformer;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.repository.RepositorySystem;
+import org.integratedmodelling.klab.api.data.Version;
 import org.integratedmodelling.klab.api.engine.distribution.*;
 
 /**
@@ -59,6 +60,9 @@ public class PackageComponentMojo extends AbstractMojo {
 
   @Parameter(required = false)
   private String componentVersion;
+
+  @Parameter(required = false)
+  private String klabVersion;
 
   @Parameter(required = true)
   private String componentDescription;
@@ -228,6 +232,8 @@ public class PackageComponentMojo extends AbstractMojo {
           "Plugin-Id", componentName == null ? project.getArtifactId() : componentName);
       manifestEntries.put(
           "Plugin-Version", componentVersion == null ? project.getVersion() : componentVersion);
+      manifestEntries.put("Plugin-Klab-Version", project.getParent() != null && project.getParent().getVersion() != null ?
+              project.getParent().getVersion() : Version.EMPTY_VERSION);
       manifestEntries.put("Plugin-Description", componentDescription);
       manifestEntries.put("Plugin-Provider", componentVendorName);
       manifestEntries.put("Plugin-License", componentUsageRights);
