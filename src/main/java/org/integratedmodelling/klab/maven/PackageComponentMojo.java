@@ -103,6 +103,9 @@ public class PackageComponentMojo extends AbstractMojo {
   @Parameter(required = false)
   private Map<String, Object> manifestEntries = new HashMap<>();
 
+  @Parameter(required = false)
+  private String excludedDependencies;
+
   private Set<String> getProjectDependencies() {
     Set<String> dependencies = new HashSet<>();
     project
@@ -118,13 +121,22 @@ public class PackageComponentMojo extends AbstractMojo {
     return dependencies;
   }
 
+  private Set<String> getExcludedDependencies() {
+    if (excludedDependencies == null || excludedDependencies.isEmpty()) {
+      return Set.of();
+    }
+    return Set.of(excludedDependencies.split(","));
+  }
+
   @Override
   public void execute() throws MojoExecutionException, MojoFailureException {
     try {
 
       var projectDependencies = getProjectDependencies();
+      var excludedDependencies = getExcludedDependencies();
 
       Map<String, Set<Artifact>> resolvedArtifacts = new HashMap<>();
+      Map<String, Set<Artifact>> excludedArtifacts = new HashMap<>();
 
       // fetch non-transitive dependencies;
       for (String dependency : projectDependencies) {
@@ -147,12 +159,40 @@ public class PackageComponentMojo extends AbstractMojo {
       Set<Artifact> artifactsIncluded = new HashSet<>();
       Set<Artifact> artifactsExcluded = new HashSet<>();
 
+      for (String dependency : excludedDependencies) {
+        try {
+        String[] parts = dependency.split(":");
+        Artifact artifact = repositorySystem.createArtifact(parts[0], parts[1], parts[2], "jar");
+
+        ArtifactResolutionRequest request =
+                new ArtifactResolutionRequest()
+                        .setArtifact(artifact)
+                        .setResolveRoot(true)
+                        .setResolveTransitively(true)
+                        .setLocalRepository(mavenSession.getLocalRepository())
+                        .setRemoteRepositories(project.getRemoteArtifactRepositories());
+
+        ArtifactResolutionResult result = repositorySystem.resolve(request);
+        excludedArtifacts.put(dependency, new HashSet<>(result.getArtifacts()));
+        } catch (Exception e) {
+          getLog()
+                  .warn("Cannot resolve excluded artifact " + dependency + ". Ignored.");
+        }
+      }
+
+      getLog().warn("SIZE OF THE EXCLUDED: " + excludedArtifacts.size());
+
       for (String dependency : projectDependencies) {
         var deps = resolvedArtifacts.get(dependency);
         artifactsIncluded.addAll(deps.stream().filter(a -> !"test".equals(a.getScope())).toList());
         if (isCoreProject(dependency)) {
           artifactsExcluded.addAll(deps);
         }
+      }
+
+      for (String dependency : excludedDependencies) {
+        var deps = excludedArtifacts.get(dependency);
+        artifactsExcluded.addAll(deps.stream().filter(a -> !"test".equals(a.getScope())).toList());
       }
 
       // these are the artifacts to keep in the plug-in
