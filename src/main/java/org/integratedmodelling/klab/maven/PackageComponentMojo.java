@@ -136,12 +136,44 @@ public class PackageComponentMojo extends AbstractMojo {
       var excludedDependencies = getExcludedDependencies();
 
       Map<String, Set<Artifact>> resolvedArtifacts = new HashMap<>();
-      Map<String, Set<Artifact>> excludedArtifacts = new HashMap<>();
+
+      Set<String> excludedByGroup = new HashSet<>();
+      Set<String> excludedByArtifact = new HashSet<>();
+      for (String dependency : excludedDependencies) {
+        String[] parts = dependency.split(":");
+        if ("*".equals(parts[1])) {
+          excludedByGroup.add(parts[0]);
+        } else {
+          excludedByArtifact.add(dependency);
+        }
+      }
+
+      getLog()
+              .debug("Size of the excluded groups: " + excludedByGroup.size());
+      getLog()
+              .debug("Size of the excluded artifacts: " + excludedByArtifact.size());
 
       // fetch non-transitive dependencies;
       for (String dependency : projectDependencies) {
 
         String[] parts = dependency.split(":");
+
+        if (excludedByGroup.stream().anyMatch(art -> art.equals(parts[0]))) {
+          // exclude
+          getLog()
+                  .warn("Excluded by group "+ parts[0]);
+          continue;
+        }
+        if (excludedByArtifact.stream().anyMatch(art -> art.equals(parts[0] + ":" + parts[1]))) {
+          // exclude
+          getLog()
+                  .warn("Excluded by artifact "+ parts[0] + ":" + parts[1]);
+          continue;
+        } else {
+          getLog()
+                  .debug("Accepted artifact "+ parts[0] + ":" + parts[1]);
+        }
+
         Artifact artifact = repositorySystem.createArtifact(parts[0], parts[1], parts[2], "jar");
 
         ArtifactResolutionRequest request =
@@ -159,40 +191,29 @@ public class PackageComponentMojo extends AbstractMojo {
       Set<Artifact> artifactsIncluded = new HashSet<>();
       Set<Artifact> artifactsExcluded = new HashSet<>();
 
-      for (String dependency : excludedDependencies) {
-        try {
-        String[] parts = dependency.split(":");
-        Artifact artifact = repositorySystem.createArtifact(parts[0], parts[1], parts[2], "jar");
-
-        ArtifactResolutionRequest request =
-                new ArtifactResolutionRequest()
-                        .setArtifact(artifact)
-                        .setResolveRoot(true)
-                        .setResolveTransitively(true)
-                        .setLocalRepository(mavenSession.getLocalRepository())
-                        .setRemoteRepositories(project.getRemoteArtifactRepositories());
-
-        ArtifactResolutionResult result = repositorySystem.resolve(request);
-        excludedArtifacts.put(dependency, new HashSet<>(result.getArtifacts()));
-        } catch (Exception e) {
-          getLog()
-                  .warn("Cannot resolve excluded artifact " + dependency + ". Ignored.");
-        }
-      }
-
-      getLog().warn("SIZE OF THE EXCLUDED: " + excludedArtifacts.size());
-
       for (String dependency : projectDependencies) {
         var deps = resolvedArtifacts.get(dependency);
-        artifactsIncluded.addAll(deps.stream().filter(a -> !"test".equals(a.getScope())).toList());
+        if (deps == null) {
+          continue;
+        }
+        for (var dep : deps) {
+          if (excludedByGroup.stream().anyMatch(art -> art.equals(dep.getGroupId()))) {
+            getLog()
+                    .warn("Excluded by group "+ dep.getGroupId());
+            continue;
+          }
+          if (excludedByArtifact.stream().anyMatch(art -> art.equals(dep.getGroupId() + ":" + dep.getArtifactId()))) {
+            getLog()
+                    .warn("Excluded by artifact "+ dep.getGroupId() + ":" + dep.getArtifactId());
+            continue;
+          }
+          if (!"test".equals(dep.getScope())) {
+            artifactsIncluded.add(dep);
+          }
+        }
         if (isCoreProject(dependency)) {
           artifactsExcluded.addAll(deps);
         }
-      }
-
-      for (String dependency : excludedDependencies) {
-        var deps = excludedArtifacts.get(dependency);
-        artifactsExcluded.addAll(deps.stream().filter(a -> !"test".equals(a.getScope())).toList());
       }
 
       // these are the artifacts to keep in the plug-in
