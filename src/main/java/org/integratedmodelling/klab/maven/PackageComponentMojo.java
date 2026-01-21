@@ -148,10 +148,8 @@ public class PackageComponentMojo extends AbstractMojo {
         }
       }
 
-      getLog()
-              .debug("Size of the excluded groups: " + excludedByGroup.size());
-      getLog()
-              .debug("Size of the excluded artifacts: " + excludedByArtifact.size());
+      getLog().debug("Size of the excluded groups: " + excludedByGroup.size());
+      getLog().debug("Size of the excluded artifacts: " + excludedByArtifact.size());
 
       // fetch non-transitive dependencies;
       for (String dependency : projectDependencies) {
@@ -160,18 +158,15 @@ public class PackageComponentMojo extends AbstractMojo {
 
         if (excludedByGroup.stream().anyMatch(art -> art.equals(parts[0]))) {
           // exclude
-          getLog()
-                  .warn("Excluded by group "+ parts[0]);
+          getLog().warn("Excluded by group " + parts[0]);
           continue;
         }
         if (excludedByArtifact.stream().anyMatch(art -> art.equals(parts[0] + ":" + parts[1]))) {
           // exclude
-          getLog()
-                  .warn("Excluded by artifact "+ parts[0] + ":" + parts[1]);
+          getLog().warn("Excluded by artifact " + parts[0] + ":" + parts[1]);
           continue;
         } else {
-          getLog()
-                  .debug("Accepted artifact "+ parts[0] + ":" + parts[1]);
+          getLog().debug("Accepted artifact " + parts[0] + ":" + parts[1]);
         }
 
         Artifact artifact = repositorySystem.createArtifact(parts[0], parts[1], parts[2], "jar");
@@ -198,13 +193,12 @@ public class PackageComponentMojo extends AbstractMojo {
         }
         for (var dep : deps) {
           if (excludedByGroup.stream().anyMatch(art -> art.equals(dep.getGroupId()))) {
-            getLog()
-                    .warn("Excluded by group "+ dep.getGroupId());
+            getLog().warn("Excluded by group " + dep.getGroupId());
             continue;
           }
-          if (excludedByArtifact.stream().anyMatch(art -> art.equals(dep.getGroupId() + ":" + dep.getArtifactId()))) {
-            getLog()
-                    .warn("Excluded by artifact "+ dep.getGroupId() + ":" + dep.getArtifactId());
+          if (excludedByArtifact.stream()
+              .anyMatch(art -> art.equals(dep.getGroupId() + ":" + dep.getArtifactId()))) {
+            getLog().warn("Excluded by artifact " + dep.getGroupId() + ":" + dep.getArtifactId());
             continue;
           }
           if (!"test".equals(dep.getScope())) {
@@ -293,8 +287,11 @@ public class PackageComponentMojo extends AbstractMojo {
           "Plugin-Id", componentName == null ? project.getArtifactId() : componentName);
       manifestEntries.put(
           "Plugin-Version", componentVersion == null ? project.getVersion() : componentVersion);
-      manifestEntries.put("Plugin-Klab-Version", project.getParent() != null && project.getParent().getVersion() != null ?
-              project.getParent().getVersion() : Version.EMPTY_VERSION);
+      manifestEntries.put(
+          "Plugin-Klab-Version",
+          project.getParent() != null && project.getParent().getVersion() != null
+              ? project.getParent().getVersion()
+              : Version.EMPTY_VERSION);
       manifestEntries.put("Plugin-Description", componentDescription);
       manifestEntries.put("Plugin-Provider", componentVendorName);
       manifestEntries.put("Plugin-License", componentUsageRights);
@@ -386,7 +383,9 @@ public class PackageComponentMojo extends AbstractMojo {
 
     // Add all included artifacts
     for (Artifact artifact : artifactsIncluded) {
-      if (artifact.getFile() != null && artifact.getFile().exists()) {
+      if (artifact.getFile() != null
+          && artifact.getFile().exists()
+          && artifact.getType().equals("jar")) {
         artifacts.add(artifact.getFile());
       } else {
         getLog().warn("Skipping artifact with null or non-existent file: " + artifact);
