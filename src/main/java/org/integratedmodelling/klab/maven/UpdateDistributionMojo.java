@@ -109,7 +109,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
 
   /**
    * If true, download the remote builds to create a self-consistent distribution. Only works in
-   * combination with remoteDistributionUrl. May cause long downloads and large file sized.
+   * combination with remoteDistributionUrl. May cause long downloads and large file sizes.
    */
   @Parameter(required = false, defaultValue = "false")
   private boolean synchronizeRemoteBuilds;
@@ -155,7 +155,8 @@ public class UpdateDistributionMojo extends AbstractMojo {
         builds.add(Pair.of(releaseFile.toFile(), build));
       }
 
-      // Filter builds to keep only the most recent build per product
+      // Filter builds to keep only the most recent build per product, in case the build wasn't
+      // cleaned before.
       Map<String, Pair<File, BuildImpl>> latestBuilds = new HashMap<>();
       for (var buildPair : builds) {
         String productName = buildPair.getSecond().getProperty(Product.PRODUCT_NAME_PROPERTY);
