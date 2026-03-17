@@ -192,12 +192,92 @@ public class UpdateDistributionMojo extends AbstractMojo {
       // step, merge with any existing properties so that when the distribution is uploaded,
       // sub-directories from previous versions are preserved up to
       // the numbers configured.
+
+      /**
+       * Structure:
+       *
+       * <p>-distribution/ distribution.properties (name, description, copyright data, email,
+       * versions) -version/ version.properties (name, releases) -release/ release.properties (name,
+       * builds) -build/ build.properties (name, date, products) -product/ product.properties (name,
+       * class, type, rundata, description, constraints) filelist.txt ....files
+       */
       File distributionDirectory =
           new File(project.getBasedir() + File.separator + outputDirectory);
       distributionDirectory.mkdirs();
-      var distributionPropertiesFile =
-          new File(
-              distributionDirectory + File.separator + Distribution.DISTRIBUTION_PROPERTIES_FILE);
+      var distributionUrl = Utils.URLs.newURL(distributionRootUrl + "/" + distributionName);
+
+      var distributionProperties =
+          Utils.Properties.create(
+              DistributionGiusta.DISTRIBUTION_NAME_PROPERTY,
+              distributionName,
+              DistributionGiusta.DISTRIBUTION_DATE_PROPERTY,
+              Instant.now().toString(),
+              DistributionGiusta.DISTRIBUTION_VERSIONS_PROPERTY,
+              distributionVersion);
+
+      if (distributionRootUrl != null) {
+        distributionProperties.setProperty(
+            DistributionGiusta.DISTRIBUTION_VERSIONS_PROPERTY,
+            synchronize(
+                Utils.URLs.newURL(
+                    distributionUrl + "/" + DistributionGiusta.DISTRIBUTION_PROPERTIES_FILE),
+                DistributionGiusta.DISTRIBUTION_VERSIONS_PROPERTY,
+                distributionVersion));
+      }
+
+      distributionProperties.save(
+          new File(distributionDirectory, DistributionGiusta.DISTRIBUTION_PROPERTIES_FILE));
+
+      var versionDirectory = new File(distributionDirectory + File.separator + distributionVersion);
+      var versionUrl = new File(distributionUrl + "/" + distributionVersion);
+      versionDirectory.mkdirs();
+      var versionProperties =
+          Utils.Properties.create(
+              DistributionGiusta.VERSION_NAME_PROPERTY,
+              distributionVersion,
+              DistributionGiusta.VERSION_RELEASES_PROPERTY,
+              releaseName);
+      if (distributionRootUrl != null) {
+        versionProperties.setProperty(
+            DistributionGiusta.VERSION_RELEASES_PROPERTY,
+            synchronize(
+                Utils.URLs.newURL(versionUrl + "/" + DistributionGiusta.VERSION_PROPERTIES_FILE),
+                DistributionGiusta.VERSION_RELEASES_PROPERTY,
+                releaseName));
+      }
+      versionProperties.save(
+          new File(versionDirectory, DistributionGiusta.VERSION_PROPERTIES_FILE));
+
+      var releaseDirectory = new File(distributionDirectory + File.separator + releaseName);
+      var releaseUrl = new File(versionUrl + "/" + distributionVersion);
+      releaseDirectory.mkdirs();
+      var releaseProperties =
+          Utils.Properties.create(
+              DistributionGiusta.RELEASE_NAME_PROPERTY,
+              releaseName,
+              DistributionGiusta.RELEASE_BUILDS_PROPERTY,
+              buildTimestamp);
+      if (distributionRootUrl != null) {
+        releaseProperties.setProperty(
+            DistributionGiusta.RELEASE_BUILDS_PROPERTY,
+            synchronize(
+                Utils.URLs.newURL(releaseUrl + "/" + DistributionGiusta.RELEASE_PROPERTIES_FILE),
+                DistributionGiusta.RELEASE_BUILDS_PROPERTY,
+                buildTimestamp));
+      }
+      releaseProperties.save(
+          new File(versionDirectory, DistributionGiusta.VERSION_PROPERTIES_FILE));
+
+      var buildDirectory = new File(releaseDirectory + File.separator + releaseName);
+      buildDirectory.mkdirs();
+      // no sync for builds as their contents are immutable once uploaded
+      var buildProperties =
+          Utils.Properties.create(
+              DistributionGiusta.BUILD_NAME_PROPERTY,
+              buildTimestamp,
+              DistributionGiusta.BUILD_PRODUCTS_PROPERTY,
+              String.join(",", products));
+      buildProperties.save(new File(buildDirectory, DistributionGiusta.BUILD_PROPERTIES_FILE));
 
       StringBuilder productNames = new StringBuilder();
 
@@ -282,13 +362,15 @@ public class UpdateDistributionMojo extends AbstractMojo {
         productProperties.saveProperties();
       }
 
-      var distribution = new PropertyBean(distributionPropertiesFile);
-      distribution.setProperty(Distribution.DISTRIBUTION_NAME_PROPERTY, distributionName);
-      distribution.setProperty(Distribution.DISTRIBUTION_DATE_PROPERTY, Instant.now().toString());
-      distribution.setProperty(
-          Distribution.DISTRIBUTION_PRODUCTS_PROPERTY, productNames.toString());
-      distribution.setProperty(Distribution.DISTRIBUTION_VERSION_PROPERTY, distributionVersion);
-      distribution.saveProperties();
+      //      var distribution = new PropertyBean(distributionPropertiesFile);
+      //      distribution.setProperty(Distribution.DISTRIBUTION_NAME_PROPERTY, distributionName);
+      //      distribution.setProperty(Distribution.DISTRIBUTION_DATE_PROPERTY,
+      // Instant.now().toString());
+      //      distribution.setProperty(
+      //          Distribution.DISTRIBUTION_PRODUCTS_PROPERTY, productNames.toString());
+      //      distribution.setProperty(Distribution.DISTRIBUTION_VERSION_PROPERTY,
+      // distributionVersion);
+      //      distribution.saveProperties();
 
       getLog()
           .info(
@@ -304,6 +386,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
     }
   }
 
+  // REMOVE (?)
   private void saveProperties(
       Properties propertiesAsDefined,
       URL possibleRemotePropertiesURL,
@@ -325,6 +408,23 @@ public class UpdateDistributionMojo extends AbstractMojo {
     }
 
     Utils.Properties.save(outputFile, propertiesAsDefined);
+  }
+
+  private String synchronize(
+      URL possibleRemotePropertiesURL, String buildPropertyToMergeWith, String thisBuildId) {
+    var remoteProperties = new Properties();
+    if (Utils.Properties.load(possibleRemotePropertiesURL, remoteProperties)) {
+      getLog().info("Loaded existing properties from " + possibleRemotePropertiesURL);
+      var remoteBuildIds = remoteProperties.getProperty(buildPropertyToMergeWith);
+      if (remoteBuildIds != null) {
+        var remoteBuildIdsList = Arrays.asList(remoteBuildIds.split(","));
+        if (!remoteBuildIdsList.contains(thisBuildId)) {
+          remoteBuildIdsList.add(0, thisBuildId);
+          return String.join(",", remoteBuildIdsList);
+        }
+      }
+    }
+    return thisBuildId;
   }
 
   private static BuildImpl getBuild(Path releaseFile) {
