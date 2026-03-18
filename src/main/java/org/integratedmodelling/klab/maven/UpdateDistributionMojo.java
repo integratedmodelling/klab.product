@@ -27,9 +27,6 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.integratedmodelling.klab.api.collections.Pair;
 import org.integratedmodelling.klab.api.engine.distribution.*;
-import org.integratedmodelling.klab.api.engine.distribution.impl.BuildImpl;
-import org.integratedmodelling.klab.api.engine.distribution.impl.LocalBuildImpl;
-import org.integratedmodelling.klab.api.utils.PropertyBean;
 import org.integratedmodelling.klab.api.utils.Utils;
 
 import java.io.File;
@@ -107,28 +104,8 @@ public class UpdateDistributionMojo extends AbstractMojo {
   @Parameter(required = false, defaultValue = "3")
   private int maxVersionsPerDistribution;
 
-  /**
-   * If true, download the remote builds to create a self-consistent distribution. Only works in
-   * combination with remoteDistributionUrl. May cause long downloads and large file sizes.
-   */
-  @Parameter(required = false, defaultValue = "false")
-  private boolean synchronizeRemoteBuilds;
-
   @Override
   public void execute() throws MojoExecutionException, MojoFailureException {
-
-    Properties remoteProperties = null;
-    if (distributionRootUrl != null) {
-      // TODO pre-populate the property files and define the local product paths
-      var properties =
-          Utils.URLs.newURL(
-              distributionRootUrl + "/" + distributionName + "/distribution.properties");
-      var existingProperties = new Properties();
-      if (Utils.Properties.load(properties, existingProperties)) {
-        getLog().info("Loaded existing distribution properties from " + properties);
-        remoteProperties = existingProperties;
-      }
-    }
 
     OffsetDateTime now = OffsetDateTime.now();
     String buildTimestamp =
@@ -148,10 +125,12 @@ public class UpdateDistributionMojo extends AbstractMojo {
     try (var walker = Files.walk(rootDirectory, FileVisitOption.FOLLOW_LINKS)) {
 
       for (var releaseFile :
-          walker.filter(path -> path.toString().endsWith(Build.BUILD_PROPERTIES_FILE)).toList()) {
+          walker
+              .filter(path -> path.toString().endsWith(Distribution.BUILD_PROPERTIES_FILE))
+              .toList()) {
         getLog().info("Detected build file " + releaseFile);
         var build = getBuild(releaseFile);
-        products.add(build.getProperty(Product.PRODUCT_NAME_PROPERTY));
+        products.add(build.getProperty(Distribution.PRODUCT_NAME_PROPERTY));
         builds.add(Pair.of(releaseFile.toFile(), build));
       }
 
@@ -159,14 +138,17 @@ public class UpdateDistributionMojo extends AbstractMojo {
       // cleaned before.
       Map<String, Pair<File, BuildImpl>> latestBuilds = new HashMap<>();
       for (var buildPair : builds) {
-        String productName = buildPair.getSecond().getProperty(Product.PRODUCT_NAME_PROPERTY);
-        String buildId = buildPair.getSecond().getProperty(Build.BUILD_VERSION_PROPERTY);
+        String productName = buildPair.getSecond().getProperty(Distribution.PRODUCT_NAME_PROPERTY);
+        String buildId = buildPair.getSecond().getProperty(Distribution.BUILD_VERSION_PROPERTY);
 
         if (!latestBuilds.containsKey(productName)) {
           latestBuilds.put(productName, buildPair);
         } else {
           String existingBuildId =
-              latestBuilds.get(productName).getSecond().getProperty(Build.BUILD_VERSION_PROPERTY);
+              latestBuilds
+                  .get(productName)
+                  .getSecond()
+                  .getProperty(Distribution.BUILD_VERSION_PROPERTY);
           if (buildId.compareTo(existingBuildId) > 0) {
             latestBuilds.put(productName, buildPair);
           }
@@ -187,20 +169,12 @@ public class UpdateDistributionMojo extends AbstractMojo {
         return;
       }
 
-      // build the directory structure to host the products:
-      // distribution/version/release/build/product. At each
-      // step, merge with any existing properties so that when the distribution is uploaded,
-      // sub-directories from previous versions are preserved up to
-      // the numbers configured.
+      /* build the directory structure to host the products:
+      distribution/version/release/build/product. At each
+      step, merge with any existing properties so that when the distribution is uploaded,
+      sub-directories from previous versions are preserved up to
+      the numbers configured. */
 
-      /**
-       * Structure:
-       *
-       * <p>-distribution/ distribution.properties (name, description, copyright data, email,
-       * versions) -version/ version.properties (name, releases) -release/ release.properties (name,
-       * builds) -build/ build.properties (name, date, products) -product/ product.properties (name,
-       * class, type, rundata, description, constraints) filelist.txt ....files
-       */
       File distributionDirectory =
           new File(
               project.getBasedir()
@@ -213,101 +187,102 @@ public class UpdateDistributionMojo extends AbstractMojo {
 
       var distributionProperties =
           Utils.Properties.create(
-              DistributionGiusta.DISTRIBUTION_NAME_PROPERTY,
+              Distribution.DISTRIBUTION_NAME_PROPERTY,
               distributionName,
-              DistributionGiusta.DISTRIBUTION_DATE_PROPERTY,
+              Distribution.DISTRIBUTION_DATE_PROPERTY,
               Instant.now().toString(),
-              DistributionGiusta.DISTRIBUTION_VERSIONS_PROPERTY,
+              Distribution.DISTRIBUTION_VERSIONS_PROPERTY,
               distributionVersion);
 
       if (distributionRootUrl != null) {
         distributionProperties.setProperty(
-            DistributionGiusta.DISTRIBUTION_VERSIONS_PROPERTY,
+            Distribution.DISTRIBUTION_VERSIONS_PROPERTY,
             synchronize(
                 Utils.URLs.newURL(
-                    distributionUrl + "/" + DistributionGiusta.DISTRIBUTION_PROPERTIES_FILE),
-                DistributionGiusta.DISTRIBUTION_VERSIONS_PROPERTY,
+                    distributionUrl + "/" + Distribution.DISTRIBUTION_PROPERTIES_FILE),
+                Distribution.DISTRIBUTION_VERSIONS_PROPERTY,
                 distributionVersion));
       }
 
       distributionProperties.save(
-          new File(distributionDirectory, DistributionGiusta.DISTRIBUTION_PROPERTIES_FILE));
+          new File(distributionDirectory, Distribution.DISTRIBUTION_PROPERTIES_FILE));
 
       var versionDirectory = new File(distributionDirectory + File.separator + distributionVersion);
       var versionUrl = Utils.URLs.newURL(distributionUrl + "/" + distributionVersion);
       versionDirectory.mkdirs();
       var versionProperties =
           Utils.Properties.create(
-              DistributionGiusta.VERSION_NAME_PROPERTY,
+              Distribution.VERSION_NAME_PROPERTY,
               distributionVersion,
-              DistributionGiusta.VERSION_RELEASES_PROPERTY,
+              Distribution.VERSION_RELEASES_PROPERTY,
               releaseName);
       if (distributionRootUrl != null) {
         versionProperties.setProperty(
-            DistributionGiusta.VERSION_RELEASES_PROPERTY,
+            Distribution.VERSION_RELEASES_PROPERTY,
             synchronize(
-                Utils.URLs.newURL(versionUrl + "/" + DistributionGiusta.VERSION_PROPERTIES_FILE),
-                DistributionGiusta.VERSION_RELEASES_PROPERTY,
+                Utils.URLs.newURL(versionUrl + "/" + Distribution.VERSION_PROPERTIES_FILE),
+                Distribution.VERSION_RELEASES_PROPERTY,
                 releaseName));
       }
-      versionProperties.save(
-          new File(versionDirectory, DistributionGiusta.VERSION_PROPERTIES_FILE));
+      versionProperties.save(new File(versionDirectory, Distribution.VERSION_PROPERTIES_FILE));
 
       var releaseDirectory = new File(versionDirectory + File.separator + releaseName);
       var releaseUrl = Utils.URLs.newURL(versionUrl + "/" + distributionVersion);
       releaseDirectory.mkdirs();
       var releaseProperties =
           Utils.Properties.create(
-              DistributionGiusta.RELEASE_NAME_PROPERTY,
+              Distribution.RELEASE_NAME_PROPERTY,
               releaseName,
-              DistributionGiusta.RELEASE_BUILDS_PROPERTY,
+              Distribution.RELEASE_BUILDS_PROPERTY,
               buildTimestamp);
       if (distributionRootUrl != null) {
         releaseProperties.setProperty(
-            DistributionGiusta.RELEASE_BUILDS_PROPERTY,
+            Distribution.RELEASE_BUILDS_PROPERTY,
             synchronize(
-                Utils.URLs.newURL(releaseUrl + "/" + DistributionGiusta.RELEASE_PROPERTIES_FILE),
-                DistributionGiusta.RELEASE_BUILDS_PROPERTY,
+                Utils.URLs.newURL(releaseUrl + "/" + Distribution.RELEASE_PROPERTIES_FILE),
+                Distribution.RELEASE_BUILDS_PROPERTY,
                 buildTimestamp));
       }
-      releaseProperties.save(
-          new File(versionDirectory, DistributionGiusta.VERSION_PROPERTIES_FILE));
+      releaseProperties.save(new File(releaseDirectory, Distribution.RELEASE_PROPERTIES_FILE));
 
       var buildDirectory = new File(releaseDirectory + File.separator + buildTimestamp);
       buildDirectory.mkdirs();
       // no sync for builds as their contents are immutable once uploaded
       var buildProperties =
           Utils.Properties.create(
-              DistributionGiusta.BUILD_NAME_PROPERTY,
+              Distribution.BUILD_NAME_PROPERTY,
               buildTimestamp,
-              DistributionGiusta.BUILD_PRODUCTS_PROPERTY,
+              Distribution.BUILD_PRODUCTS_PROPERTY,
               String.join(",", products));
-      buildProperties.save(new File(buildDirectory, DistributionGiusta.BUILD_PROPERTIES_FILE));
+      buildProperties.save(new File(buildDirectory, Distribution.BUILD_PROPERTIES_FILE));
 
       for (var built : builds) {
 
-        // TODO if more than one build for a project, take the most recent only
         var productSource = built.getFirst();
         var build = built.getSecond();
 
         var productType =
-            DistributionGiusta.Product.Type.valueOf(
-                build.getProperty(Product.PRODUCT_CLASS_PROPERTY).toUpperCase());
+            Distribution.Product.Type.valueOf(
+                build.getProperty(Distribution.PRODUCT_TYPE_PROPERTY).toUpperCase());
         var platform =
-            DistributionGiusta.Product.Platform.valueOf(
-                build.getProperty(Product.PRODUCT_TYPE_PROPERTY).toUpperCase());
+            Distribution.Product.Platform.valueOf(
+                build.getProperty(Distribution.PRODUCT_PLATFORM_PROPERTY).toUpperCase());
 
-        var productDirectory = new File(buildDirectory + File.separator + productType.getId());
+        var productDirectory =
+            new File(
+                buildDirectory
+                    + File.separator
+                    + build.getProperty(Distribution.PRODUCT_NAME_PROPERTY));
 
         // no sync for builds as their contents are immutable once uploaded
         var productProperties =
             Utils.Properties.create(
-                DistributionGiusta.PRODUCT_NAME_PROPERTY,
-                productType.getId(),
-                DistributionGiusta.PRODUCT_MAINCLASS_PROPERTY,
+                Distribution.PRODUCT_PLATFORM_PROPERTY,
+                platform.name(),
+                Distribution.PRODUCT_MAINCLASS_PROPERTY,
                 build.getExecutable(),
-                DistributionGiusta.PRODUCT_TYPE_PROPERTY,
-                platform.name());
+                Distribution.PRODUCT_TYPE_PROPERTY,
+                productType.name());
 
         getLog()
             .info(
@@ -321,9 +296,9 @@ public class UpdateDistributionMojo extends AbstractMojo {
                     + productDirectory);
 
         Files.move(productSource.toPath().getParent(), productDirectory.toPath(), REPLACE_EXISTING);
-
-        productProperties.save(
-            new File(productDirectory, DistributionGiusta.PRODUCT_PROPERTIES_FILE));
+        Files.deleteIfExists(
+            new File(productDirectory, Distribution.BUILD_PROPERTIES_FILE).toPath());
+        productProperties.save(new File(productDirectory, Distribution.PRODUCT_PROPERTIES_FILE));
       }
 
       getLog()
@@ -358,7 +333,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
   }
 
   private static BuildImpl getBuild(Path releaseFile) {
-    var build = new LocalBuildImpl(releaseFile.toFile(), null, null, null);
+    var build = new BuildImpl(releaseFile.toFile());
     build.setLocalWorkspace(releaseFile.getParent().toFile());
     return build;
   }
