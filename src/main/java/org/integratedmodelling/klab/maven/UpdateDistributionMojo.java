@@ -115,9 +115,14 @@ public class UpdateDistributionMojo extends AbstractMojo {
             + String.format("%02d", now.getHour())
             + String.format("%02d", now.getMinute());
 
-    List<Pair<File, BuildImpl>> builds = new ArrayList<>();
+    List<Pair<File, Utils.Properties.Container>> builds = new ArrayList<>();
     Set<String> products = new HashSet<>();
     var rootDirectory = Path.of(mavenSession.getExecutionRootDirectory());
+
+    /*
+    normally a branch name, may contain slashes
+     */
+    releaseName = releaseName.replaceAll("/", "-");
 
     /*
     Create Build objects from each build found in the project
@@ -129,14 +134,14 @@ public class UpdateDistributionMojo extends AbstractMojo {
               .filter(path -> path.toString().endsWith(Distribution.BUILD_PROPERTIES_FILE))
               .toList()) {
         getLog().info("Detected build file " + releaseFile);
-        var build = getBuild(releaseFile);
+        var build = Utils.Properties.create(releaseFile.toFile());
         products.add(build.getProperty(Distribution.PRODUCT_NAME_PROPERTY));
         builds.add(Pair.of(releaseFile.toFile(), build));
       }
 
       // Filter builds to keep only the most recent build per product, in case the build wasn't
       // cleaned before.
-      Map<String, Pair<File, BuildImpl>> latestBuilds = new HashMap<>();
+      Map<String, Pair<File, Utils.Properties.Container>> latestBuilds = new HashMap<>();
       for (var buildPair : builds) {
         String productName = buildPair.getSecond().getProperty(Distribution.PRODUCT_NAME_PROPERTY);
         String buildId = buildPair.getSecond().getProperty(Distribution.BUILD_VERSION_PROPERTY);
@@ -280,7 +285,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
                 Distribution.PRODUCT_PLATFORM_PROPERTY,
                 platform.name(),
                 Distribution.PRODUCT_MAINCLASS_PROPERTY,
-                build.getExecutable(),
+                build.getProperty(Distribution.PRODUCT_MAINCLASS_PROPERTY),
                 Distribution.PRODUCT_TYPE_PROPERTY,
                 productType.name());
 
@@ -330,11 +335,5 @@ public class UpdateDistributionMojo extends AbstractMojo {
       }
     }
     return thisBuildId;
-  }
-
-  private static BuildImpl getBuild(Path releaseFile) {
-    var build = new BuildImpl(releaseFile.toFile());
-    build.setLocalWorkspace(releaseFile.getParent().toFile());
-    return build;
   }
 }
