@@ -51,6 +51,9 @@ public class ReleasePackageMojo extends CopyDependenciesMojo {
   @Parameter(required = false)
   private String productDescription;
 
+  @Parameter(required = false)
+  private String javaOptions;
+
   @Parameter(required = true)
   private Distribution.Product.Type productClass;
 
@@ -177,6 +180,9 @@ public class ReleasePackageMojo extends CopyDependenciesMojo {
       properties.setProperty(Distribution.PRODUCT_MAINCLASS_PROPERTY, productMain);
       properties.setProperty(Distribution.BUILD_TIME_PROPERTY, System.currentTimeMillis() + "");
       properties.setProperty(Distribution.BUILD_VERSION_PROPERTY, productVersion + "." + timestamp);
+      if (javaOptions != null) {
+        properties.setProperty(Distribution.PRODUCT_JAVA_OPTIONS_PROPERTY, javaOptions);
+      }
 
       try (OutputStream out = new FileOutputStream(propertyFile)) {
         properties.store(out, "Created by klab.product Maven plugin on " + Instant.now());

@@ -289,6 +289,14 @@ public class UpdateDistributionMojo extends AbstractMojo {
                 Distribution.PRODUCT_TYPE_PROPERTY,
                 productType.name());
 
+        if (build.getProperty(Distribution.PRODUCT_JAVA_OPTIONS_PROPERTY) != null) {
+          productProperties
+              .getProperties()
+              .setProperty(
+                  Distribution.PRODUCT_JAVA_OPTIONS_PROPERTY,
+                  build.getProperty(Distribution.PRODUCT_JAVA_OPTIONS_PROPERTY));
+        }
+
         getLog()
             .info(
                 "Moving "
