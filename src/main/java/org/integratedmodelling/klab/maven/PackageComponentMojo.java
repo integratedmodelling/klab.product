@@ -25,7 +25,6 @@ import org.apache.maven.plugins.shade.resource.ResourceTransformer;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.repository.RepositorySystem;
 import org.integratedmodelling.klab.api.data.Version;
-import org.integratedmodelling.klab.api.engine.distribution.*;
 
 /**
  * Create a k.LAB component plug-in with the same name as the original Jar but with a -klab
@@ -106,19 +105,65 @@ public class PackageComponentMojo extends AbstractMojo {
   @Parameter(required = false)
   private String excludedDependencies;
 
+  /**
+   * Comma-separated Maven coordinates for the host runtime artifact(s) whose dependency closure is
+   * provided to the component at runtime. Supported forms:
+   * groupId:artifactId:version
+   * groupId:artifactId:type:version
+   * groupId:artifactId:type:classifier:version
+   */
+  @Parameter(property = "klab.hostRuntimeArtifacts", required = true)
+  private String hostRuntimeArtifacts;
+
   private Set<String> getProjectDependencies() {
     Set<String> dependencies = new HashSet<>();
-    project
-        .getDependencies()
-        .forEach(
-            dependency ->
-                dependencies.add(
-                    dependency.getGroupId()
+
+    project.getDependencies().forEach(dependency -> {
+      if (!isRuntimeRelevantScope(dependency.getScope())) {
+        getLog().debug(
+                "Skipping non-runtime dependency "
+                        + dependency.getGroupId()
                         + ":"
                         + dependency.getArtifactId()
+                        + " with scope "
+                        + dependency.getScope());
+        return;
+      }
+
+      if (dependency.isOptional()) {
+        getLog().debug(
+                "Skipping optional dependency "
+                        + dependency.getGroupId()
                         + ":"
-                        + dependency.getVersion()));
+                        + dependency.getArtifactId());
+        return;
+      }
+
+      String type = dependency.getType() == null ? "jar" : dependency.getType();
+      if (!"jar".equals(type)) {
+        getLog().debug(
+                "Skipping non-jar dependency "
+                        + dependency.getGroupId()
+                        + ":"
+                        + dependency.getArtifactId()
+                        + " with type "
+                        + type);
+        return;
+      }
+
+      dependencies.add(
+              dependency.getGroupId()
+                      + ":"
+                      + dependency.getArtifactId()
+                      + ":"
+                      + dependency.getVersion());
+    });
+
     return dependencies;
+  }
+
+  private boolean isRuntimeRelevantScope(String scope) {
+    return scope == null || "compile".equals(scope) || "runtime".equals(scope);
   }
 
   private Set<String> getExcludedDependencies() {
@@ -140,11 +185,19 @@ public class PackageComponentMojo extends AbstractMojo {
       Set<String> excludedByGroup = new HashSet<>();
       Set<String> excludedByArtifact = new HashSet<>();
       for (String dependency : excludedDependencies) {
-        String[] parts = dependency.split(":");
+        String[] parts = dependency.trim().split(":");
+
+        if (parts.length < 2) {
+          throw new MojoExecutionException(
+                  "Invalid excluded dependency '"
+                          + dependency
+                          + "'. Expected groupId:* or groupId:artifactId.");
+        }
+
         if ("*".equals(parts[1])) {
           excludedByGroup.add(parts[0]);
         } else {
-          excludedByArtifact.add(dependency);
+          excludedByArtifact.add(parts[0] + ":" + parts[1]);
         }
       }
 
@@ -183,35 +236,107 @@ public class PackageComponentMojo extends AbstractMojo {
         resolvedArtifacts.put(dependency, new HashSet<>(result.getArtifacts()));
       }
 
+      
+      Set<Artifact> candidateArtifacts = new HashSet<>();
       Set<Artifact> artifactsIncluded = new HashSet<>();
       Set<Artifact> artifactsExcluded = new HashSet<>();
+
+      /*
+       * The runtime application provides k.LAB core dependencies and their transitive closure.
+       *
+       * Exclusion must be based on groupId:artifactId, not exact groupId:artifactId:version.
+       * If the component requests the same GA at a different version, we still exclude it and warn,
+       * because packaging a second version in the component can create duplicate classes at runtime.
+       */
+      Map<ArtifactKey, Set<String>> hostProvidedVersions = resolveHostProvidedVersions();
 
       for (String dependency : projectDependencies) {
         var deps = resolvedArtifacts.get(dependency);
         if (deps == null) {
           continue;
         }
-        for (var dep : deps) {
-          if (excludedByGroup.stream().anyMatch(art -> art.equals(dep.getGroupId()))) {
-            getLog().warn("Excluded by group " + dep.getGroupId());
-            continue;
-          }
-          if (excludedByArtifact.stream()
-              .anyMatch(art -> art.equals(dep.getGroupId() + ":" + dep.getArtifactId()))) {
-            getLog().warn("Excluded by artifact " + dep.getGroupId() + ":" + dep.getArtifactId());
-            continue;
-          }
-          if (!"test".equals(dep.getScope())) {
-            artifactsIncluded.add(dep);
+
+        /*
+         * Any dependency reachable through a k.LAB core dependency is considered provided by the
+         * main application runtime.
+         */
+        if (isCoreProject(dependency)) {
+          for (var dep : deps) {
+            if (!isRuntimeRelevant(dep)) {
+              continue;
+            }
+
+            ArtifactKey key = ArtifactKey.of(dep);
+            hostProvidedVersions
+                    .computeIfAbsent(key, ignored -> new TreeSet<>())
+                    .add(dep.getVersion());
+
+            artifactsExcluded.add(dep);
           }
         }
-        if (isCoreProject(dependency)) {
-          artifactsExcluded.addAll(deps);
+
+        /*
+         * Build the component candidate set, applying explicit manual exclusions first.
+         */
+        for (var dep : deps) {
+          if (!isRuntimeRelevant(dep)) {
+            continue;
+          }
+
+          if (excludedByGroup.stream().anyMatch(art -> art.equals(dep.getGroupId()))) {
+            getLog().warn("Excluded by group " + dep.getGroupId());
+            artifactsExcluded.add(dep);
+            continue;
+          }
+
+          if (excludedByArtifact.stream()
+                  .anyMatch(art -> art.equals(dep.getGroupId() + ":" + dep.getArtifactId()))) {
+            getLog().warn("Excluded by artifact " + dep.getGroupId() + ":" + dep.getArtifactId());
+            artifactsExcluded.add(dep);
+            continue;
+          }
+
+          candidateArtifacts.add(dep);
         }
       }
 
-      // these are the artifacts to keep in the plug-in
-      artifactsIncluded.removeAll(artifactsExcluded);
+      /*
+       * Final host-runtime exclusion pass.
+       *
+       * This is the important part:
+       * - same GA, same version      -> exclude quietly/debug
+       * - same GA, different version -> exclude and warn
+       */
+      for (var artifact : candidateArtifacts) {
+        ArtifactKey key = ArtifactKey.of(artifact);
+        Set<String> providedVersions = hostProvidedVersions.get(key);
+
+        if (providedVersions != null) {
+          artifactsExcluded.add(artifact);
+
+          if (!providedVersions.contains(artifact.getVersion())) {
+            getLog()
+                    .warn(
+                            "Excluded host-provided artifact "
+                                    + key
+                                    + ":"
+                                    + artifact.getVersion()
+                                    + "; host runtime provides version(s) "
+                                    + providedVersions);
+          } else {
+            getLog()
+                    .debug(
+                            "Excluded host-provided artifact "
+                                    + key
+                                    + ":"
+                                    + artifact.getVersion());
+          }
+
+          continue;
+        }
+
+        artifactsIncluded.add(artifact);
+      }
 
       // last pass, only keep the same versions of the same artifacts if it's there in multiple
       // versions, and give a warning
@@ -233,7 +358,7 @@ public class PackageComponentMojo extends AbstractMojo {
                         + artifact.getGroupId()
                         + ":"
                         + artifact.getArtifactId()
-                        + " found in the project dependencies. Using "
+                        + " found in the remaining component dependencies. Using "
                         + artifact.getVersion()
                         + " instead of "
                         + existing.getVersion());
@@ -244,7 +369,7 @@ public class PackageComponentMojo extends AbstractMojo {
                         + artifact.getGroupId()
                         + ":"
                         + artifact.getArtifactId()
-                        + " found in the project dependencies. Using "
+                        + " found in the remaining component dependencies. Using "
                         + existing.getVersion()
                         + " instead of "
                         + artifact.getVersion());
@@ -359,8 +484,119 @@ public class PackageComponentMojo extends AbstractMojo {
     }
   }
 
+  private Map<ArtifactKey, Set<String>> resolveHostProvidedVersions()
+          throws MojoExecutionException {
+
+    if (hostRuntimeArtifacts == null || hostRuntimeArtifacts.isBlank()) {
+      throw new MojoExecutionException(
+              "klab.hostRuntimeArtifacts must be configured to identify the actual "
+                      + "application runtime that will load this component.");
+    }
+
+    Map<ArtifactKey, Set<String>> hostProvidedVersions = new HashMap<>();
+
+    for (String coordinate : hostRuntimeArtifacts.split(",")) {
+      coordinate = coordinate.trim();
+      if (coordinate.isEmpty()) {
+        continue;
+      }
+
+      Artifact hostArtifact = createArtifactFromCoordinate(coordinate);
+
+      ArtifactResolutionRequest request =
+              new ArtifactResolutionRequest()
+                      .setArtifact(hostArtifact)
+                      .setResolveRoot(true)
+                      .setResolveTransitively(true)
+                      .setLocalRepository(mavenSession.getLocalRepository())
+                      .setRemoteRepositories(project.getRemoteArtifactRepositories());
+
+      ArtifactResolutionResult result = repositorySystem.resolve(request);
+
+      if (result.hasExceptions()) {
+        throw new MojoExecutionException(
+                "Could not resolve host runtime dependency closure for " + coordinate,
+                result.getExceptions().get(0));
+      }
+
+      for (Artifact artifact : result.getArtifacts()) {
+        if (!isRuntimeRelevant(artifact)) {
+          continue;
+        }
+
+        ArtifactKey key = ArtifactKey.of(artifact);
+        hostProvidedVersions
+                .computeIfAbsent(key, ignored -> new TreeSet<>())
+                .add(artifact.getVersion());
+      }
+    }
+
+    getLog().info(
+            "Resolved "
+                    + hostProvidedVersions.size()
+                    + " host-provided runtime artifact coordinates.");
+
+    return hostProvidedVersions;
+  }
+
+  private Artifact createArtifactFromCoordinate(String coordinate)
+          throws MojoExecutionException {
+
+    String[] parts = coordinate.split(":");
+
+    return switch (parts.length) {
+      case 3 ->
+              repositorySystem.createArtifact(
+                      parts[0], parts[1], parts[2], "jar");
+
+      case 4 ->
+              repositorySystem.createArtifact(
+                      parts[0], parts[1], parts[3], parts[2]);
+
+      case 5 ->
+              repositorySystem.createArtifactWithClassifier(
+                      parts[0], parts[1], parts[4], parts[2], parts[3]);
+
+      default ->
+              throw new MojoExecutionException(
+                      "Invalid host runtime artifact coordinate '"
+                              + coordinate
+                              + "'. Expected groupId:artifactId:version, "
+                              + "groupId:artifactId:type:version, or "
+                              + "groupId:artifactId:type:classifier:version.");
+    };
+  }
+
   private boolean isCoreProject(String dependency) {
     return dependency.startsWith("org.integratedmodelling:klab");
+  }
+
+  private boolean isRuntimeRelevant(Artifact artifact) {
+    if (artifact == null) {
+      return false;
+    }
+
+    if (!isRuntimeRelevantScope(artifact.getScope())) {
+      return false;
+    }
+
+    if (artifact.isOptional()) {
+      return false;
+    }
+
+    return "jar".equals(artifact.getType());
+  }
+
+  private record ArtifactKey(String groupId, String artifactId) {
+
+    static ArtifactKey of(Artifact artifact) {
+      return new ArtifactKey(artifact.getGroupId(), artifact.getArtifactId());
+    }
+
+    @Override
+    public String toString() {
+      return groupId + ":" + artifactId;
+    }
   }
 
   /**
