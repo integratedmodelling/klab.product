@@ -30,10 +30,12 @@ import org.integratedmodelling.klab.api.engine.distribution.*;
 import org.integratedmodelling.klab.api.utils.Utils;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -264,6 +266,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
       for (var built : builds) {
 
         var productSource = built.getFirst();
+        var projectSource = productSource.getParentFile().getParentFile().getParentFile();
         var build = built.getSecond();
 
         var productType =
@@ -297,6 +300,18 @@ public class UpdateDistributionMojo extends AbstractMojo {
                   build.getProperty(Distribution.PRODUCT_JAVA_OPTIONS_PROPERTY));
         }
 
+        String[] additionalDirectories = new String[0];
+        if (build.getProperty(Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY) != null) {
+          productProperties
+              .getProperties()
+              .setProperty(
+                  Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY,
+                  build.getProperty(Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY));
+
+          additionalDirectories =
+              build.getProperty(Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY).split(",");
+        }
+
         getLog()
             .info(
                 "Moving "
@@ -312,6 +327,40 @@ public class UpdateDistributionMojo extends AbstractMojo {
         Files.deleteIfExists(
             new File(productDirectory, Distribution.BUILD_PROPERTIES_FILE).toPath());
         productProperties.save(new File(productDirectory, Distribution.PRODUCT_PROPERTIES_FILE));
+
+        for (var directory : additionalDirectories) {
+
+          var source = projectSource.toPath().resolve(directory).toFile();
+          var target = new File(productDirectory, directory);
+          Files.createDirectories(target.toPath());
+
+          // Ensure target parent exists
+          if (source.isDirectory() && target.isDirectory()) {
+            try (var stream = Files.walk(source.toPath())) {
+              stream.forEach(
+                  sourcePath -> {
+                    Path targetPath =
+                        target.toPath().resolve(source.toPath().relativize(sourcePath));
+
+                    // Create directories if needed
+                    try {
+                      if (Files.isDirectory(sourcePath)) {
+                        Files.createDirectories(targetPath);
+                      } else {
+                        // Copy file, overwriting if it exists
+                        Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                      }
+                    } catch (IOException e) {
+                      throw new RuntimeException(e);
+                    }
+                  });
+            } catch (Throwable t) {
+              throw new MojoFailureException("Failed to copy additional file: " + directory, t);
+            }
+          } else {
+            getLog().warn("Skipping non-existing additional directory " + source);
+          }
+        }
       }
 
       getLog()

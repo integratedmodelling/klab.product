@@ -57,6 +57,9 @@ public class ReleasePackageMojo extends CopyDependenciesMojo {
   @Parameter(required = true)
   private Distribution.Product.Type productClass;
 
+  @Parameter(required = false)
+  private String additionalDirectories;
+
   /**
    * If this is present in a Java JAR-based product, it must be the main class. Otherwise a script
    * or executable is identified by its relative path in the distribution. Only
@@ -182,6 +185,10 @@ public class ReleasePackageMojo extends CopyDependenciesMojo {
       properties.setProperty(Distribution.BUILD_VERSION_PROPERTY, productVersion + "." + timestamp);
       if (javaOptions != null) {
         properties.setProperty(Distribution.PRODUCT_JAVA_OPTIONS_PROPERTY, javaOptions);
+      }
+      if (additionalDirectories != null) {
+        properties.setProperty(
+            Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY, additionalDirectories);
       }
 
       try (OutputStream out = new FileOutputStream(propertyFile)) {
