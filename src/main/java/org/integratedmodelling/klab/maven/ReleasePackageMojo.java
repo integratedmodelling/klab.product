@@ -57,6 +57,7 @@ public class ReleasePackageMojo extends CopyDependenciesMojo {
   @Parameter(required = true)
   private Distribution.Product.Type productClass;
 
+  /** Comma-separated project-relative directories shipped as product files outside its classpath. */
   @Parameter(required = false)
   private String additionalDirectories;
 

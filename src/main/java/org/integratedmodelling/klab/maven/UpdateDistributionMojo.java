@@ -119,7 +119,11 @@ public class UpdateDistributionMojo extends AbstractMojo {
 
     List<Pair<File, Utils.Properties.Container>> builds = new ArrayList<>();
     Set<String> products = new HashSet<>();
-    var rootDirectory = Path.of(mavenSession.getExecutionRootDirectory());
+    var rootDirectory =
+        Path.of(mavenSession.getExecutionRootDirectory()).toAbsolutePath().normalize();
+    var distributionPath =
+        project.getBasedir().toPath().resolve(outputDirectory).resolve(distributionName)
+            .toAbsolutePath().normalize();
 
     /*
     normally a branch name, may contain slashes
@@ -133,11 +137,19 @@ public class UpdateDistributionMojo extends AbstractMojo {
 
       for (var releaseFile :
           walker
-              .filter(path -> path.toString().endsWith(Distribution.BUILD_PROPERTIES_FILE))
+              .filter(path -> !path.startsWith(distributionPath))
+              .filter(path -> path.getFileName().toString().equals(Distribution.BUILD_PROPERTIES_FILE))
+              .filter(Files::isRegularFile)
               .toList()) {
-        getLog().info("Detected build file " + releaseFile);
         var build = Utils.Properties.create(releaseFile.toFile());
-        products.add(build.getProperty(Distribution.PRODUCT_NAME_PROPERTY));
+        String productName = build.getProperty(Distribution.PRODUCT_NAME_PROPERTY);
+        String buildId = build.getProperty(Distribution.BUILD_VERSION_PROPERTY);
+        if (productName == null || productName.isBlank() || buildId == null || buildId.isBlank()) {
+          getLog().warn("Ignoring build file without a product name or build version: " + releaseFile);
+          continue;
+        }
+        getLog().info("Detected build file " + releaseFile);
+        products.add(productName);
         builds.add(Pair.of(releaseFile.toFile(), build));
       }
 
@@ -182,13 +194,7 @@ public class UpdateDistributionMojo extends AbstractMojo {
       sub-directories from previous versions are preserved up to
       the numbers configured. */
 
-      File distributionDirectory =
-          new File(
-              project.getBasedir()
-                  + File.separator
-                  + outputDirectory
-                  + File.separator
-                  + distributionName);
+      File distributionDirectory = distributionPath.toFile();
       distributionDirectory.mkdirs();
       var distributionUrl = Utils.URLs.newURL(distributionRootUrl + "/" + distributionName);
 
@@ -300,16 +306,23 @@ public class UpdateDistributionMojo extends AbstractMojo {
                   build.getProperty(Distribution.PRODUCT_JAVA_OPTIONS_PROPERTY));
         }
 
-        String[] additionalDirectories = new String[0];
-        if (build.getProperty(Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY) != null) {
-          productProperties
-              .getProperties()
-              .setProperty(
-                  Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY,
-                  build.getProperty(Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY));
-
-          additionalDirectories =
-              build.getProperty(Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY).split(",");
+        var additionalDirectories = build.getProperty(Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY);
+        var payloadDirectories =
+            additionalDirectories == null
+                ? List.<Path>of()
+                : Arrays.stream(additionalDirectories.split(","))
+                    .map(String::strip)
+                    .filter(directory -> !directory.isEmpty())
+                    .map(directory -> Path.of(directory.replace('\\', '/')).normalize())
+                    .toList();
+        for (var directory : payloadDirectories) {
+          if (directory.getRoot() != null || directory.toString().isEmpty() || directory.startsWith("..")) {
+            throw new MojoFailureException("Additional directory must be product-relative: " + directory);
+          }
+        }
+        if (!payloadDirectories.isEmpty()) {
+          productProperties.setProperty(
+              Distribution.PRODUCT_ADDITIONAL_DIRECTORIES_PROPERTY, additionalDirectories);
         }
 
         getLog()
@@ -326,16 +339,12 @@ public class UpdateDistributionMojo extends AbstractMojo {
         Files.move(productSource.toPath().getParent(), productDirectory.toPath(), REPLACE_EXISTING);
         Files.deleteIfExists(
             new File(productDirectory, Distribution.BUILD_PROPERTIES_FILE).toPath());
-        productProperties.save(new File(productDirectory, Distribution.PRODUCT_PROPERTIES_FILE));
-
-        for (var directory : additionalDirectories) {
+        for (var directory : payloadDirectories) {
 
           var source = projectSource.toPath().resolve(directory).toFile();
-          var target = new File(productDirectory, directory);
-          Files.createDirectories(target.toPath());
+          var target = productDirectory.toPath().resolve(directory).toFile();
 
-          // Ensure target parent exists
-          if (source.isDirectory() && target.isDirectory()) {
+          if (source.isDirectory()) {
             try (var stream = Files.walk(source.toPath())) {
               stream.forEach(
                   sourcePath -> {
@@ -361,6 +370,13 @@ public class UpdateDistributionMojo extends AbstractMojo {
             getLog().warn("Skipping non-existing additional directory " + source);
           }
         }
+
+        if (!payloadDirectories.isEmpty()) {
+          // Include payload files in the digest used by distribution synchronization.
+          Files.deleteIfExists(productDirectory.toPath().resolve(Distribution.BUILD_DIGEST_FILE));
+          Digest.createMD5Digest(productDirectory, Distribution.BUILD_DIGEST_FILE);
+        }
+        productProperties.save(new File(productDirectory, Distribution.PRODUCT_PROPERTIES_FILE));
       }
 
       getLog()
